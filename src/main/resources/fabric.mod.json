@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "vinylmusicplayer",
+  "version": "${version}",
+  "name": "Vinyl Music Player",
+  "description": "A music player with a spinning vinyl disc, local MP3/OGG/WAV playlists, YouTube Music and Spotify sync through the OS media session, and a per-sound volume mixer.",
+  "authors": ["Vinyl Music Player"],
+  "license": "MIT",
+  "icon": "assets/vinylmusicplayer/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.vinylmusic.client.VinylClient"],
+    "modmenu": ["com.vinylmusic.compat.ModMenuCompat"]
+  },
+  "mixins": [
+    {
+      "config": "vinyl-music-player.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}
