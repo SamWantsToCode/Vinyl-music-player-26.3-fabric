@@ -24,13 +24,21 @@ public final class Overlay {
 	private static final int INFO_W = 112;
 	private static final int VOL_W = 7;
 
-	private static boolean wasLeft;
-	private static boolean wasRight;
+	private static boolean leftHeld;
+	private static boolean rightHeld;
 	private static boolean draggingVolume;
 	private static boolean draggingMove;
 	private static int grabX;
 	private static int grabY;
 	private static Screen pendingParent;
+
+	// What was drawn last frame, so a click can be matched against it.
+	private static Screen lastScreen;
+	private static Layout lastLayout;
+	private static VinylConfig.Placement lastPlacement;
+	private static boolean lastInteractive;
+	private static int lastMx;
+	private static int lastMy;
 
 	private record Layout(int x, int y, int d, int discX, int infoX, int infoY, int volX, int totalW, boolean info, boolean vol) {
 		int btnY() {
@@ -113,7 +121,18 @@ public final class Overlay {
 			Layout l = layout(screen.width, screen.height, cfg, p);
 			draw(g, mc.font, cfg, l, mx, my, interactive);
 			Diagnostics.overlayDrawn = true;
-			if (interactive) handleInput(screen, cfg, p, l, mx, my);
+			if (interactive) {
+				lastScreen = screen;
+				lastLayout = l;
+				lastPlacement = p;
+				lastInteractive = true;
+				lastMx = mx;
+				lastMy = my;
+				applyDrags(screen, p, l, mx, my);
+				InputHooks.poll(LISTENER, mx, my);
+			} else if (lastScreen == screen) {
+				lastInteractive = false;
+			}
 		} catch (Throwable t) {
 			Diagnostics.error("screen overlay", t);
 		}
@@ -209,56 +228,88 @@ public final class Overlay {
 		}
 	}
 
-	private static void handleInput(Screen screen, VinylConfig cfg, VinylConfig.Placement p, Layout l, int mx, int my) {
-		boolean left = Input.leftDown();
-		boolean right = Input.rightDown();
-		MusicManager mm = MusicManager.get();
+	/** Receives presses and releases from InputHooks. */
+	public static final InputHooks.Listener LISTENER = new InputHooks.Listener() {
+		@Override
+		public boolean press(int button, double x, double y) {
+			return onPress(button, x, y);
+		}
 
-		if (left && !wasLeft) {
+		@Override
+		public void release(int button) {
+			if (button == 0) {
+				leftHeld = false;
+				draggingVolume = false;
+			} else if (button == 1) {
+				rightHeld = false;
+				draggingMove = false;
+			}
+		}
+	};
+
+	private static boolean onPress(int button, double px, double py) {
+		Layout l = lastLayout;
+		if (!lastInteractive || lastScreen == null || l == null) return false;
+		int mx = Double.isNaN(px) ? lastMx : (int) Math.floor(px);
+		int my = Double.isNaN(py) ? lastMy : (int) Math.floor(py);
+		MusicManager mm = MusicManager.get();
+		if (button == 0) {
+			leftHeld = true;
 			int cx = l.discX() + l.d() / 2;
 			int cy = l.y() + l.d() / 2;
 			double dx = mx - cx;
 			double dy = my - cy;
 			if (l.vol() && Ui.in(mx, my, l.volX() - 2, l.y(), VOL_W + 4, l.d())) {
 				draggingVolume = true;
-			} else if (dx * dx + dy * dy <= (l.d() / 2.0) * (l.d() / 2.0)) {
-				pendingParent = screen;
-			} else if (l.info() && Ui.in(mx, my, l.infoX(), l.btnY(), 34, 14)) {
+				mm.setVolume(1f - (my - l.y()) / (float) l.d());
+				return true;
+			}
+			if (dx * dx + dy * dy <= (l.d() / 2.0) * (l.d() / 2.0)) {
+				pendingParent = lastScreen;
+				return true;
+			}
+			if (l.info() && Ui.in(mx, my, l.infoX(), l.btnY(), 34, 14)) {
 				mm.previous();
-			} else if (l.info() && Ui.in(mx, my, l.infoX() + 36, l.btnY(), 38, 14)) {
+				return true;
+			}
+			if (l.info() && Ui.in(mx, my, l.infoX() + 36, l.btnY(), 38, 14)) {
 				mm.togglePlayPause();
-			} else if (l.info() && Ui.in(mx, my, l.infoX() + 76, l.btnY(), 36, 14)) {
+				return true;
+			}
+			if (l.info() && Ui.in(mx, my, l.infoX() + 76, l.btnY(), 36, 14)) {
 				mm.next();
+				return true;
+			}
+			return false;
+		}
+		if (button == 1) {
+			rightHeld = true;
+			if (Ui.in(mx, my, l.x(), l.y(), l.totalW(), l.d())) {
+				draggingMove = true;
+				grabX = mx - l.x();
+				grabY = my - l.y();
+				return true;
 			}
 		}
-		if (draggingVolume) {
-			if (left) mm.setVolume(1f - (my - l.y()) / (float) l.d());
-			else draggingVolume = false;
-		}
+		return false;
+	}
 
-		// Right button drag moves the whole widget and remembers the place.
-		if (right && !wasRight && Ui.in(mx, my, l.x(), l.y(), l.totalW(), l.d())) {
-			draggingMove = true;
-			grabX = mx - l.x();
-			grabY = my - l.y();
+	/** Runs every frame. Follows the mouse while a button is held on the volume bar or the disc. */
+	private static void applyDrags(Screen screen, VinylConfig.Placement p, Layout l, int mx, int my) {
+		if (draggingVolume && leftHeld) {
+			MusicManager.get().setVolume(1f - (my - l.y()) / (float) l.d());
 		}
-		if (draggingMove) {
-			if (right) {
-				int nx = Math.max(0, Math.min(mx - grabX, Math.max(0, screen.width - l.totalW())));
-				int ny = Math.max(0, Math.min(my - grabY, Math.max(0, screen.height - l.d())));
-				int ccx = nx + l.totalW() / 2;
-				int ccy = ny + l.d() / 2;
-				int col = ccx < screen.width / 3 ? 0 : (ccx > screen.width * 2 / 3 ? 2 : 1);
-				int row = ccy < screen.height / 3 ? 0 : (ccy > screen.height * 2 / 3 ? 2 : 1);
-				p.anchor = row * 3 + col;
-				p.offX = nx - baseX(col, screen.width, l.totalW());
-				p.offY = ny - baseY(row, screen.height, l.d());
-				VinylConfig.markDirty();
-			} else {
-				draggingMove = false;
-			}
+		if (draggingMove && rightHeld) {
+			int nx = Math.max(0, Math.min(mx - grabX, Math.max(0, screen.width - l.totalW())));
+			int ny = Math.max(0, Math.min(my - grabY, Math.max(0, screen.height - l.d())));
+			int ccx = nx + l.totalW() / 2;
+			int ccy = ny + l.d() / 2;
+			int col = ccx < screen.width / 3 ? 0 : (ccx > screen.width * 2 / 3 ? 2 : 1);
+			int row = ccy < screen.height / 3 ? 0 : (ccy > screen.height * 2 / 3 ? 2 : 1);
+			p.anchor = row * 3 + col;
+			p.offX = nx - baseX(col, screen.width, l.totalW());
+			p.offY = ny - baseY(row, screen.height, l.d());
+			VinylConfig.markDirty();
 		}
-		wasLeft = left;
-		wasRight = right;
 	}
 }

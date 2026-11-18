@@ -30,7 +30,8 @@ If the mod does nothing in game, send `.minecraft/logs/latest.log`. Search it fo
 - Right-drag the disc to move it. Pause menu, title screen and in-game each remember their own place.
 - Music tab: Add New Song, Add Folder, Delete All Songs, Shuffle, Loop and Source. Click a song for
   Play Now, Play Next, Add to Queue, Edit Song Info / Custom Cover and Remove.
-- Songs are .mp3, .ogg and .wav. You can also copy files into `.minecraft/music_player/`.
+- Songs are .mp3, .ogg and .wav. You can also copy files into `.minecraft/music_player/` and press Rescan Folder.
+- The disc only shows what THIS player plays. The music you hear in a world is Minecraft's own music.
 - Sound Mixer tab: category sliders, then Animals, Hostile Mobs, Blocks, Particles, Weather, Other.
   "Group by entity" gives one slider per mob (all cow sounds at once). Turn it off for single sounds.
   M mutes a row. Reset All puts everything back to 100%.
@@ -59,13 +60,13 @@ Volume for this source is only controllable on Linux. On Windows use the player'
 
 - `audio/` decoders (MP3 through bundled JLayer, OGG through LWJGL STB, WAV through javax.sound), tags,
   player, playlist manager, system media.
-- `gui/` disc renderer, corner overlay, main screen, sound catalog.
+- `gui/` disc renderer, corner overlay, main screen, mouse hooks, file pickers, sound catalog.
 - `mixin/` `SoundEngineMixin` multiplies the final volume of each sound. `ScreenMixin` draws the corner disc.
 - `compat/` Mod Menu entrypoint.
 
 ## Places to check first if a Minecraft update breaks the build
 
-- `gui/Input.java`: `mouseHandler.isLeftPressed()`
+- `gui/InputHooks.java`: Fabric `ScreenMouseEvents` (found by name at runtime), plus `gui/Input.java` backup polling
 - `gui/VinylScreen.java`: `extractBackground`, `mouseScrolled`, `rebuildWidgets`, `EditBox`
 - `gui/Overlay.java`: `mc.gui.screen()`, `mc.gui.setScreen(...)`, `getWindow().getGuiScaledWidth()`
 - `mixin/SoundEngineMixin.java`: `calculateVolume`, `getSource()`, `getIdentifier()`

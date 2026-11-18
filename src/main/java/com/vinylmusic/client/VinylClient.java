@@ -2,7 +2,9 @@ package com.vinylmusic.client;
 
 import com.vinylmusic.audio.MusicManager;
 import com.vinylmusic.config.VinylConfig;
+import com.vinylmusic.gui.InputHooks;
 import com.vinylmusic.gui.Overlay;
+import com.vinylmusic.gui.VinylScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -10,21 +12,18 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.resources.Identifier;
-
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
 
 public final class VinylClient implements ClientModInitializer {
 	public static final String MOD_ID = "vinylmusicplayer";
 
 	private int saveTimer;
-	private final Set<Screen> hooked = Collections.newSetFromMap(new WeakHashMap<>());
 
 	@Override
 	public void onInitializeClient() {
+		Diagnostics.LOG.info("[VinylMusicPlayer] Build {}", Diagnostics.BUILD);
 		Diagnostics.LOG.info("[VinylMusicPlayer] Starting {}",
 				FabricLoader.getInstance().getModContainer(MOD_ID).map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?"));
 		Diagnostics.modMenuPresent = FabricLoader.getInstance().isModLoaded("modmenu");
@@ -39,9 +38,15 @@ public final class VinylClient implements ClientModInitializer {
 		// Disc on every screen. The overlay itself decides which screens show it.
 		try {
 			ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-				if (hooked.add(screen)) {
-					ScreenEvents.afterExtract(screen).register((s, graphics, mouseX, mouseY, tickProgress) ->
-							Overlay.onScreenRender(s, graphics, mouseX, mouseY));
+				// Every init gets a new generation, so handlers left over from an earlier init do nothing.
+				int gen = InputHooks.nextGen(screen);
+				ScreenEvents.afterExtract(screen).register((s, graphics, mouseX, mouseY, tickProgress) -> {
+					if (InputHooks.isCurrent(screen, gen)) Overlay.onScreenRender(s, graphics, mouseX, mouseY);
+				});
+				if (screen instanceof VinylScreen vs) {
+					InputHooks.register(screen, gen, vs.inputListener());
+				} else if (screen instanceof PauseScreen || screen instanceof TitleScreen) {
+					InputHooks.register(screen, gen, Overlay.LISTENER);
 				}
 			});
 			Diagnostics.screenHookRegistered = true;

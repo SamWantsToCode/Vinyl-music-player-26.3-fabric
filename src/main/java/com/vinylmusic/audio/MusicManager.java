@@ -127,6 +127,23 @@ public final class MusicManager {
 		}
 	}
 
+	public void setMessage(String m) {
+		this.message = m == null ? "" : m;
+	}
+
+	/** Picks up files that were copied into the music_player folder. */
+	public void rescanFolder() {
+		pendingScans++;
+		scanner.submit(() -> {
+			try {
+				scanFolderInternal(VinylConfig.musicDir(), false);
+			} finally {
+				pendingScans--;
+				persistPlaylist();
+			}
+		});
+	}
+
 	public boolean isScanning() {
 		return pendingScans > 0;
 	}

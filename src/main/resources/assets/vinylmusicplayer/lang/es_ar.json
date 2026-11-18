@@ -135,5 +135,8 @@
   "vinylmusicplayer.diag.no_errors": "Sin errores.",
   "vinylmusicplayer.yes_short": "sí",
   "vinylmusicplayer.no_short": "no",
-  "vinylmusicplayer.set.tip": "Desplázate para ver más. Arrastra el disco con clic derecho en el menú de pausa o principal para colocarlo."
+  "vinylmusicplayer.set.tip": "Desplázate para ver más. Arrastra el disco con clic derecho en el menú de pausa o principal para colocarlo.",
+  "vinylmusicplayer.refresh": "Releer carpeta",
+  "vinylmusicplayer.picker.none": "No se encontró un selector de archivos. Copia canciones a la carpeta music_player y pulsa Releer carpeta.",
+  "vinylmusicplayer.diag.input": "Eventos de ratón: pulsar enlazado %s, soltar enlazado %s, pulsaciones recibidas %s, pulsaciones de respaldo %s"
 }

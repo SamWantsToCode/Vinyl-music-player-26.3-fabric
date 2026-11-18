@@ -61,7 +61,6 @@ public final class VinylScreen extends Screen {
 	private final Screen parent;
 	private final List<Hot> hots = new ArrayList<>();
 	private Hot activeDrag;
-	private boolean wasDown;
 	private boolean needsRebuild;
 	private int curMx, curMy;
 
@@ -95,8 +94,6 @@ public final class VinylScreen extends Screen {
 	public VinylScreen(Screen parent) {
 		super(Component.translatable("vinylmusicplayer.title"));
 		this.parent = parent;
-		// The press that opened this screen is still held. Do not count it as a click here.
-		this.wasDown = Input.leftDown();
 	}
 
 	// ------------------------------------------------------------------ lifecycle
@@ -108,9 +105,15 @@ public final class VinylScreen extends Screen {
 		py = (this.height - ph) / 2;
 	}
 
+	private boolean scannedOnce;
+
 	@Override
 	protected void init() {
 		computeLayout();
+		if (!scannedOnce) {
+			scannedOnce = true;
+			MusicManager.get().rescanFolder();
+		}
 		search = null;
 		boxTitle = boxArtist = boxAlbum = null;
 		if (editing != null) {
@@ -180,12 +183,21 @@ public final class VinylScreen extends Screen {
 		hots.clear();
 		DiscRenderer.advance(MusicManager.get().isPlaying());
 		drawUi(g);
-		handleInput(mx, my);
+		if (activeDrag != null) {
+			activeDrag.drag.accept(activeDrag.frac(mx, my));
+		}
+		InputHooks.poll(listener, mx, my);
 	}
 
-	private void handleInput(int mx, int my) {
-		boolean down = Input.leftDown();
-		if (down && !wasDown) {
+	/** Mouse press and release come from InputHooks. */
+	private final InputHooks.Listener listener = new InputHooks.Listener() {
+		@Override
+		public boolean press(int button, double x, double y) {
+			if (button != 0 && button != 1) return false;
+			int mx = Double.isNaN(x) ? curMx : (int) Math.floor(x);
+			int my = Double.isNaN(y) ? curMy : (int) Math.floor(y);
+			curMx = mx;
+			curMy = my;
 			boolean hit = false;
 			for (int i = hots.size() - 1; i >= 0; i--) {
 				Hot h = hots.get(i);
@@ -199,11 +211,17 @@ public final class VinylScreen extends Screen {
 				break;
 			}
 			if (!hit && popTrack != null) popTrack = null;
-		} else if (down && activeDrag != null) {
-			activeDrag.drag.accept(activeDrag.frac(mx, my));
+			return false;
 		}
-		if (!down) activeDrag = null;
-		wasDown = down;
+
+		@Override
+		public void release(int button) {
+			activeDrag = null;
+		}
+	};
+
+	public InputHooks.Listener inputListener() {
+		return listener;
 	}
 
 	private boolean hover(int x, int y, int w, int h) {
@@ -340,6 +358,7 @@ public final class VinylScreen extends Screen {
 			x = btn(g, x, y, Ui.tr("add_song"), false, false, this::pickSongs);
 			x = btn(g, x, y, Ui.tr("add_folder"), false, false, this::pickFolder);
 			x = btn(g, x, y, Ui.tr("open_folder"), false, false, () -> FileDialog.openFolder(VinylConfig.musicDir()));
+			x = btn(g, x, y, Ui.tr("refresh"), false, false, () -> MusicManager.get().rescanFolder());
 			btn(g, x, y, Ui.tr("delete_all"), true, false, () -> confirmClear = true);
 		}
 		// Second row: toggles.
@@ -361,7 +380,7 @@ public final class VinylScreen extends Screen {
 		});
 
 		int top = y + 42;
-		int bottom = py + ph - 30;
+		int bottom = py + ph - 40;
 		if (!local) {
 			drawSystemPanel(g, top, bottom);
 			return;
@@ -414,7 +433,11 @@ public final class VinylScreen extends Screen {
 
 		// Status line under the list.
 		String info = Ui.tr("songs_count", mm.playlist().size()) + (mm.queueSize() > 0 ? "   " + Ui.tr("queue_count", mm.queueSize()) : "");
-		Ui.text(g, this.font, info, px + 8, bottom + 4, Ui.DARK_DIM);
+		if (!mm.message().isEmpty()) {
+			Ui.text(g, this.font, Ui.fit(this.font, mm.message(), pw - 16), px + 8, bottom + 4, 0xFFE06666);
+		} else {
+			Ui.text(g, this.font, info, px + 8, bottom + 4, Ui.DARK_DIM);
+		}
 
 		if (popTrack != null) drawPopover(g);
 	}
@@ -667,7 +690,7 @@ public final class VinylScreen extends Screen {
 
 		rebuildMixRows();
 		int top = y + 42;
-		int bottom = py + ph - 30;
+		int bottom = py + ph - 40;
 		int rowH = 20;
 		int rows = Math.max(1, (bottom - top) / rowH);
 		int maxScroll = Math.max(0, mixRows.size() - rows);
@@ -878,8 +901,10 @@ public final class VinylScreen extends Screen {
 		rows.add(toggle("set.autoplay", () -> cfg.autoplay, v -> cfg.autoplay = v));
 
 		rows.add(header("set.sec.diag"));
+		rows.add(info(() -> "Build " + Diagnostics.BUILD));
 		rows.add(info(() -> Ui.tr("diag.hooks", yn(Diagnostics.screenHookRegistered), yn(Diagnostics.hudRegistered), yn(Diagnostics.soundMixinHit))));
 		rows.add(info(() -> Ui.tr("diag.drawn", yn(Diagnostics.overlayDrawn), yn(Diagnostics.hudDrawn), yn(Diagnostics.modMenuPresent))));
+		rows.add(info(() -> Ui.tr("diag.input", yn(InputHooks.pressHooked), yn(InputHooks.releaseHooked), String.valueOf(InputHooks.eventPresses), String.valueOf(InputHooks.pollPresses))));
 		rows.add(info(() -> Diagnostics.lastError.isEmpty() ? Ui.tr("diag.no_errors") : Diagnostics.lastError));
 		rows.add(info(() -> Ui.tr("set.files", "config/vinyl-music-player.json")));
 		rows.add(info(() -> Ui.tr("set.music_folder", "music_player")));
@@ -893,7 +918,7 @@ public final class VinylScreen extends Screen {
 	private void drawSettings(GuiGraphicsExtractor g) {
 		List<SRow> rows = settingsRows();
 		int top = py + 46;
-		int bottom = py + ph - 30;
+		int bottom = py + ph - 40;
 		int rowH = 22;
 		int visible = Math.max(1, (bottom - top) / rowH);
 		int maxScroll = Math.max(0, rows.size() - visible);

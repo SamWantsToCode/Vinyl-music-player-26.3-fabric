@@ -135,5 +135,8 @@
   "vinylmusicplayer.diag.no_errors": "No errors.",
   "vinylmusicplayer.yes_short": "yes",
   "vinylmusicplayer.no_short": "no",
-  "vinylmusicplayer.set.tip": "Scroll for more. Right-drag the disc in the pause or main menu to place it."
+  "vinylmusicplayer.set.tip": "Scroll for more. Right-drag the disc in the pause or main menu to place it.",
+  "vinylmusicplayer.refresh": "Rescan Folder",
+  "vinylmusicplayer.picker.none": "No file picker found. Copy songs into the music_player folder and press Rescan Folder.",
+  "vinylmusicplayer.diag.input": "Mouse events: press hooked %s, release hooked %s, presses received %s, backup presses %s"
 }
