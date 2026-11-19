@@ -14,7 +14,7 @@ public final class SoundCatalog {
 	private SoundCatalog() {
 	}
 
-	public enum Tab { ANIMALS, HOSTILE, BLOCKS, PARTICLES, WEATHER, OTHER }
+	public enum Tab { ANIMALS, HOSTILE, VEHICLES, PLAYER, BLOCKS, ITEMS, MUSIC, UI, PARTICLES, WEATHER, OTHER }
 
 	public record Entry(String id, String group, Tab tab) {
 		/** Id without the namespace. */
@@ -25,7 +25,7 @@ public final class SoundCatalog {
 	}
 
 	public static final String[] CATEGORIES = {
-			"MUSIC", "RECORDS", "WEATHER", "BLOCKS", "HOSTILE", "NEUTRAL", "PLAYERS", "AMBIENT", "VOICE"
+			"ALL", "MUSIC", "RECORDS", "WEATHER", "BLOCKS", "HOSTILE", "NEUTRAL", "PLAYERS", "AMBIENT", "VOICE"
 	};
 
 	private static final Set<String> HOSTILE = Set.of(
@@ -60,26 +60,46 @@ public final class SoundCatalog {
 		return cache;
 	}
 
+	private static final String[] VEHICLE_WORDS = {"boat", "minecart", "raft", "vehicle", "car", "train", "plane", "helicopter", "bike", "ship", "tank", "mech"};
+
 	private static Tab tabOf(String id) {
 		int c = id.indexOf(':');
 		String ns = c >= 0 ? id.substring(0, c) : "minecraft";
 		String path = c >= 0 ? id.substring(c + 1) : id;
 		String[] seg = path.split("\\.");
-		if (!ns.equals("minecraft")) {
-			// Modded sounds: still sort entity sounds by their mob name when it is known.
-			if (seg.length >= 2 && seg[0].equals("entity")) return mobTab(seg[1]);
-			return Tab.OTHER;
+		boolean vanilla = ns.equals("minecraft");
+		switch (seg[0]) {
+			case "entity":
+				if (seg.length >= 2) return mobTab(seg[1], vanilla);
+				return Tab.OTHER;
+			case "block":
+				return Tab.BLOCKS;
+			case "item":
+				return Tab.ITEMS;
+			case "music":
+			case "music_disc":
+			case "record":
+				return Tab.MUSIC;
+			case "ui":
+				return Tab.UI;
+			case "particle":
+			case "ambient":
+				return Tab.PARTICLES;
+			case "weather":
+				return Tab.WEATHER;
+			default:
+				if (!vanilla) {
+					for (String w : VEHICLE_WORDS) if (path.contains(w)) return Tab.VEHICLES;
+				}
+				return Tab.OTHER;
 		}
-		return switch (seg[0]) {
-			case "entity" -> seg.length >= 2 ? mobTab(seg[1]) : Tab.OTHER;
-			case "block" -> Tab.BLOCKS;
-			case "particle", "ambient" -> Tab.PARTICLES;
-			case "weather" -> Tab.WEATHER;
-			default -> Tab.OTHER;
-		};
 	}
 
-	private static Tab mobTab(String mob) {
+	private static Tab mobTab(String mob, boolean vanilla) {
+		for (String w : VEHICLE_WORDS) {
+			if (mob.contains(w) && !mob.equals("creeper") && !mob.equals("scary")) return Tab.VEHICLES;
+		}
+		if (mob.equals("player")) return Tab.PLAYER;
 		if (HOSTILE.contains(mob)) return Tab.HOSTILE;
 		if (ANIMALS.contains(mob)) return Tab.ANIMALS;
 		return Tab.OTHER;

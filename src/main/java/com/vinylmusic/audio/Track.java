@@ -14,6 +14,12 @@ public final class Track {
 	public volatile int[] cover;
 	/** THUMB_SIZE x THUMB_SIZE opaque ARGB pixels or null. */
 	public volatile int[] thumb;
+	/** True for songs that ship with Minecraft. */
+	public volatile boolean vanilla;
+	/** Library folder this song came from, or null when it was added as a single file. */
+	public volatile String folder;
+	/** Audio format when the file name has no extension (Minecraft stores sounds under hashed names). */
+	public volatile String format;
 
 	public Track(String path) {
 		this.path = path;
@@ -31,6 +37,7 @@ public final class Track {
 	}
 
 	public String extension() {
+		if (format != null) return format;
 		String n = fileName();
 		int d = n.lastIndexOf('.');
 		return d >= 0 ? n.substring(d + 1).toLowerCase() : "";

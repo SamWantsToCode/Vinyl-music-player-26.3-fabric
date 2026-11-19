@@ -25,22 +25,25 @@ If the mod does nothing in game, send `.minecraft/logs/latest.log`. Search it fo
 
 ## Using it
 
-- Open the pause menu (Escape) or the title screen: the disc shows in the bottom-left corner.
-- Left click the disc to open the full screen. Click the arrows to skip. Drag the bar for volume.
+- Open the pause menu (Escape) or the title screen: the disc shows with its song card.
+- Left click the disc to open the full screen. Click the card buttons to skip or pause. Click or drag the bar for volume.
 - Right-drag the disc to move it. Pause menu, title screen and in-game each remember their own place.
-- Music tab: Add New Song, Add Folder, Delete All Songs, Shuffle, Loop and Source. Click a song for
-  Play Now, Play Next, Add to Queue, Edit Song Info / Custom Cover and Remove.
-- Songs are .mp3, .ogg and .wav. You can also copy files into `.minecraft/music_player/` and press Rescan Folder.
-- The disc only shows what THIS player plays. The music you hear in a world is Minecraft's own music.
-- Sound Mixer tab: category sliders, then Animals, Hostile Mobs, Blocks, Particles, Weather, Other.
-  "Group by entity" gives one slider per mob (all cow sounds at once). Turn it off for single sounds.
-  M mutes a row. Reset All puts everything back to 100%.
-- Settings tab (scrolls):
-  - Pause menu, main menu and in game: show or hide, 9 anchor positions, left/right and up/down offsets.
-  - In game: Hidden, Always on, or Only while music plays. Optional: also show on inventory, chat and menus.
-  - Look: size, opacity, vinyl or CD style, disc color (presets and red/green/blue sliders), label color,
-    highlight color, spin speed, shine, song info, volume bar.
-  - Status: shows which hooks work. Useful when something does not appear.
+- Right-click the disc (without dragging) for a size menu: disc bigger or smaller, card bigger or smaller, reset, open settings.
+  The disc and the song card have separate sizes.
+- Music tab:
+  - Minecraft's own songs and music discs are listed by default (Calm, Chirp, Cat and the rest). The Show button filters
+    All songs, My songs or Minecraft.
+  - Add New Song picks files. Folders keeps a list of folders (as many as you like) next to the default
+    `.minecraft/music_player/`. New files in those folders appear when you press Rescan Folder or reopen the screen.
+  - Click a song for Play Now, Play Next, Add to Queue. Your own songs also get Edit Song Info / Custom Cover and Remove.
+  - Delete All Songs removes the songs and folders you added. Minecraft's songs stay.
+- Songs you add are .mp3, .ogg and .wav.
+- The disc shows what THIS player plays. Music Minecraft plays by itself is separate. Use the Music slider in the mixer for that.
+- Sound Mixer tab: every sound in the game. Categories (including All sounds), Animals, Hostile Mobs, Vehicles, Player,
+  Blocks, Items, Music & Discs, Interface, Particles, Weather, Other, All. "Group by entity" gives one slider per mob or
+  vehicle. Turn it off for single sounds. M mutes a row. Reset All puts everything back to 100%.
+- Settings tab (scrolls): where the disc shows, 9 anchor positions plus offsets, in-game mode (Hidden, Always on, Only while
+  music plays), disc and card size, opacity, vinyl or CD style, colors, spin speed, and a Status section for troubleshooting.
 
 ## System media (YouTube Music, Spotify)
 

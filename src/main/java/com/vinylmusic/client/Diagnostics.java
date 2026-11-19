@@ -11,7 +11,7 @@ public final class Diagnostics {
 	public static final Logger LOG = LoggerFactory.getLogger("VinylMusicPlayer");
 
 	/** Shown in Settings, Status so you can tell which build is running. */
-	public static final String BUILD = "1.0.21-r2 (mouse events, native file pickers)";
+	public static final String BUILD = "1.0.21-r3 (disc menu, Minecraft songs, folders, mixer)";
 
 	public static volatile boolean initDone;
 	public static volatile boolean screenHookRegistered;

@@ -56,6 +56,8 @@ public final class VinylConfig {
 
 	// Look
 	public float scale = 1.0f;
+	/** Size of the song card (text, buttons and volume bar) next to the disc. */
+	public float cardScale = 1.0f;
 	public float opacity = 1.0f;
 	/** RGB of the vinyl body. */
 	public int vinylColor = 0x101014;
@@ -79,7 +81,11 @@ public final class VinylConfig {
 	public String source = "LOCAL";
 	public boolean muteVanillaMusic = true;
 	public boolean autoplay = false;
+	/** List the songs that ship with Minecraft next to your own. */
+	public boolean showMinecraftMusic = true;
 	public List<String> playlist = new ArrayList<>();
+	/** Folders that are scanned for songs, next to the default music_player folder. */
+	public List<String> libraryFolders = new ArrayList<>();
 	public Map<String, TrackOverride> overrides = new LinkedHashMap<>();
 
 	// Mixer: values 0.0 to 1.0. Missing key means 1.0.
@@ -116,6 +122,8 @@ public final class VinylConfig {
 
 	private void sanitize() {
 		if (playlist == null) playlist = new ArrayList<>();
+		if (libraryFolders == null) libraryFolders = new ArrayList<>();
+		cardScale = Math.max(0.5f, Math.min(2.0f, cardScale));
 		if (overrides == null) overrides = new LinkedHashMap<>();
 		if (categoryVolume == null) categoryVolume = new LinkedHashMap<>();
 		if (groupVolume == null) groupVolume = new LinkedHashMap<>();
@@ -146,6 +154,7 @@ public final class VinylConfig {
 
 	public void resetLook() {
 		scale = 1.0f;
+		cardScale = 1.0f;
 		opacity = 1.0f;
 		vinylColor = 0x101014;
 		labelColor = -1;
@@ -233,7 +242,10 @@ public final class VinylConfig {
 	/** Final multiplier for one playing sound. Called from the sound mixin every tick, so keep it cheap. */
 	public float soundFactor(String category, String soundId) {
 		float f = 1f;
-		if (!categoryVolume.isEmpty()) f *= getCategory(category);
+		if (!categoryVolume.isEmpty()) {
+			f *= getCategory("ALL");
+			f *= getCategory(category);
+		}
 		if (!groupVolume.isEmpty()) f *= getGroup(groupOf(soundId));
 		if (!soundVolume.isEmpty()) f *= getSound(soundId);
 		return f;

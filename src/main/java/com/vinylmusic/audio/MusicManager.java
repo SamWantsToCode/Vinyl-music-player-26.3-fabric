@@ -62,8 +62,8 @@ public final class MusicManager {
 					Path p = Path.of(s);
 					if (Files.isRegularFile(p)) playlist.add(load(p));
 				}
-				// Also pick up files dropped into .minecraft/music_player.
-				scanFolderInternal(VinylConfig.musicDir(), false);
+				scanAllFolders();
+				if (cfg.showMinecraftMusic) loadVanilla();
 			} finally {
 				pendingScans--;
 				persistPlaylist();
@@ -131,12 +131,13 @@ public final class MusicManager {
 		this.message = m == null ? "" : m;
 	}
 
-	/** Picks up files that were copied into the music_player folder. */
+	/** Picks up new files in the music_player folder and in every library folder. */
 	public void rescanFolder() {
 		pendingScans++;
 		scanner.submit(() -> {
 			try {
-				scanFolderInternal(VinylConfig.musicDir(), false);
+				scanAllFolders();
+				if (VinylConfig.get().showMinecraftMusic) loadVanilla();
 			} finally {
 				pendingScans--;
 				persistPlaylist();
@@ -186,11 +187,18 @@ public final class MusicManager {
 		});
 	}
 
-	public void addFolder(Path dir) {
+	/** Adds a folder to the library. It is scanned now and again on every rescan and game start. */
+	public void addLibraryFolder(Path dir) {
+		String abs = dir.toAbsolutePath().toString();
+		VinylConfig cfg = VinylConfig.get();
+		if (!cfg.libraryFolders.contains(abs)) {
+			cfg.libraryFolders.add(abs);
+			VinylConfig.markDirty();
+		}
 		pendingScans++;
 		scanner.submit(() -> {
 			try {
-				scanFolderInternal(dir, true);
+				scanFolderInternal(dir, true, abs);
 			} finally {
 				pendingScans--;
 				persistPlaylist();
@@ -198,12 +206,48 @@ public final class MusicManager {
 		});
 	}
 
+	public List<String> libraryFolders() {
+		return new ArrayList<>(VinylConfig.get().libraryFolders);
+	}
+
+	/** Stops scanning a folder and removes the songs that came from it. */
+	public void removeLibraryFolder(String folder) {
+		VinylConfig.get().libraryFolders.remove(folder);
+		VinylConfig.markDirty();
+		for (Track t : new ArrayList<>(playlist)) {
+			if (folder.equals(t.folder)) remove(t);
+		}
+	}
+
+	private void scanAllFolders() {
+		scanFolderInternal(VinylConfig.musicDir(), false);
+		for (String f : new ArrayList<>(VinylConfig.get().libraryFolders)) {
+			scanFolderInternal(Path.of(f), true, f);
+		}
+	}
+
+	private boolean vanillaLoaded;
+
+	private void loadVanilla() {
+		if (vanillaLoaded) return;
+		vanillaLoaded = true;
+		playlist.addAll(VanillaMusic.load());
+	}
+
 	private void scanFolderInternal(Path dir, boolean recursive) {
+		scanFolderInternal(dir, recursive, null);
+	}
+
+	private void scanFolderInternal(Path dir, boolean recursive, String tag) {
 		if (!Files.isDirectory(dir)) return;
 		try (Stream<Path> s = recursive ? Files.walk(dir, 6) : Files.list(dir)) {
 			List<Path> found = s.filter(Files::isRegularFile).filter(MetadataReader::isSupported).sorted().toList();
 			for (Path p : found) {
-				if (!contains(p)) playlist.add(load(p));
+				if (!contains(p)) {
+					Track t = load(p);
+					t.folder = tag == null ? dir.toAbsolutePath().toString() : tag;
+					playlist.add(t);
+				}
 			}
 		} catch (Exception e) {
 			message = "Could not read folder: " + e.getMessage();
@@ -219,6 +263,7 @@ public final class MusicManager {
 	}
 
 	public void remove(Track t) {
+		if (t.vanilla) return;
 		boolean wasCurrent = t == current;
 		playlist.remove(t);
 		synchronized (queue) {
@@ -233,14 +278,19 @@ public final class MusicManager {
 		persistPlaylist();
 	}
 
+	/** Removes every song you added. Minecraft's own songs stay. */
 	public void clearAll() {
-		player.stop();
-		localPlaying = false;
-		current = null;
-		playlist.clear();
-		synchronized (queue) {
-			queue.clear();
+		Track cur = current;
+		if (cur != null && !cur.vanilla) {
+			player.stop();
+			localPlaying = false;
+			current = null;
 		}
+		playlist.removeIf(t -> !t.vanilla);
+		synchronized (queue) {
+			queue.removeIf(t -> !t.vanilla);
+		}
+		VinylConfig.get().libraryFolders.clear();
 		persistPlaylist();
 	}
 
@@ -258,7 +308,9 @@ public final class MusicManager {
 	private void persistPlaylist() {
 		VinylConfig cfg = VinylConfig.get();
 		List<String> paths = new ArrayList<>();
-		for (Track t : playlist) paths.add(t.path);
+		for (Track t : playlist) {
+			if (!t.vanilla && t.folder == null) paths.add(t.path);
+		}
 		cfg.playlist = paths;
 		VinylConfig.markDirty();
 	}

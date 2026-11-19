@@ -6,8 +6,6 @@ import net.minecraft.client.gui.screens.Screen;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.Map;
-import java.util.WeakHashMap;
 
 /**
  * Connects mouse presses and releases to a screen through Fabric's ScreenMouseEvents.
@@ -27,29 +25,28 @@ public final class InputHooks {
 	}
 
 	private static final String EVENTS = "net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents";
-	private static final Map<Screen, Integer> GEN = new WeakHashMap<>();
 	private static final long[] LAST_PRESS = new long[3];
 
 	public static volatile boolean pressHooked;
 	public static volatile boolean releaseHooked;
 	public static volatile int eventPresses;
 	public static volatile int pollPresses;
+	public static volatile String lastPress = "none yet";
+	private static int logged;
+
+	private static void note(String source, int button, Object screen) {
+		lastPress = source + " button " + button + " on " + screen.getClass().getSimpleName();
+		if (logged < 12) {
+			logged++;
+			Diagnostics.LOG.info("[VinylMusicPlayer] Mouse press via {}: button {} on {}", source, button, screen.getClass().getName());
+		}
+	}
 
 	private static boolean prevLeft;
 	private static boolean prevRight;
 
-	public static synchronized int nextGen(Screen screen) {
-		int g = GEN.getOrDefault(screen, 0) + 1;
-		GEN.put(screen, g);
-		return g;
-	}
-
-	public static synchronized boolean isCurrent(Screen screen, int gen) {
-		return GEN.getOrDefault(screen, 0) == gen;
-	}
-
 	/** Registers press and release handlers for this screen. Call on every screen init. */
-	public static void register(Screen screen, int gen, Listener listener) {
+	public static void register(Screen screen, Listener listener) {
 		try {
 			boolean ok = false;
 			for (String name : new String[]{"allowMouseClick", "beforeMouseClick"}) {
@@ -57,11 +54,13 @@ public final class InputHooks {
 					register(screen, name, name.substring(0, 1).toUpperCase() + name.substring(1), (proxy, method, args) -> {
 						boolean allow = true;
 						if (method.getDeclaringClass() == Object.class) return objectMethod(proxy, method, args);
-						if (isCurrent(screen, gen) && args != null) {
+						if (args != null) {
 							double[] xy = {Double.NaN, Double.NaN};
 							int button = readMouse(args, xy);
 							eventPresses++;
-							if (dedupedPress(listener, button, xy[0], xy[1], true)) allow = false;
+							note("event", button, screen);
+							// The position comes from the last drawn frame, not from the event.
+							if (dedupedPress(listener, button, Double.NaN, Double.NaN, true)) allow = false;
 						}
 						return method.getReturnType() == boolean.class ? (Object) allow : null;
 					});
@@ -78,7 +77,7 @@ public final class InputHooks {
 				try {
 					register(screen, name, name.substring(0, 1).toUpperCase() + name.substring(1), (proxy, method, args) -> {
 						if (method.getDeclaringClass() == Object.class) return objectMethod(proxy, method, args);
-						if (isCurrent(screen, gen) && args != null) {
+						if (args != null) {
 							double[] xy = {Double.NaN, Double.NaN};
 							int button = readMouse(args, xy);
 							listener.release(button);
@@ -158,7 +157,10 @@ public final class InputHooks {
 		}
 		if (left && !prevLeft) {
 			long before = LAST_PRESS[0];
-			if (dedupedPress(l, 0, mx, my, false) || LAST_PRESS[0] != before) pollPresses++;
+			if (dedupedPress(l, 0, mx, my, false) || LAST_PRESS[0] != before) {
+				pollPresses++;
+				note("polling", 0, l);
+			}
 		}
 		if (!left && prevLeft) l.release(0);
 		if (right && !prevRight) {

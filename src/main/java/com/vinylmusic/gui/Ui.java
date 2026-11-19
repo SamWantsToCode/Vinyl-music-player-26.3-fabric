@@ -119,6 +119,37 @@ public final class Ui {
 		g.disableScissor();
 	}
 
+	/** Draws text at screen position (sx, sy) with a size multiplier. The matrix must be the identity here. */
+	public static void textScaled(GuiGraphicsExtractor g, Font font, String s, int sx, int sy, float scale, int color, boolean shadow) {
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.translate((float) sx, (float) sy);
+		pose.scale(scale, scale);
+		g.text(font, s, 0, 0, color, shadow);
+		pose.popMatrix();
+	}
+
+	/** Like marquee, but the text box is wLocal wide before scaling and sits at screen position (sx, sy). */
+	public static void marqueeScaled(GuiGraphicsExtractor g, Font font, String s, int sx, int sy, int wLocal, float scale, int color, boolean shadow) {
+		int tw = font.width(s);
+		if (tw <= wLocal) {
+			textScaled(g, font, s, sx, sy, scale, color, shadow);
+			return;
+		}
+		int gap = 24;
+		int period = tw + gap;
+		int off = (int) ((System.currentTimeMillis() / 30) % period);
+		g.enableScissor(sx, sy - 1, sx + Math.round(wLocal * scale), sy + Math.round(10 * scale));
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.translate((float) sx, (float) sy);
+		pose.scale(scale, scale);
+		g.text(font, s, -off, 0, color, shadow);
+		g.text(font, s, -off + period, 0, color, shadow);
+		pose.popMatrix();
+		g.disableScissor();
+	}
+
 	public static String time(long ms) {
 		if (ms <= 0) return "--:--";
 		long s = ms / 1000;

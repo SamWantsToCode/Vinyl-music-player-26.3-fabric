@@ -38,15 +38,14 @@ public final class VinylClient implements ClientModInitializer {
 		// Disc on every screen. The overlay itself decides which screens show it.
 		try {
 			ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-				// Every init gets a new generation, so handlers left over from an earlier init do nothing.
-				int gen = InputHooks.nextGen(screen);
-				ScreenEvents.afterExtract(screen).register((s, graphics, mouseX, mouseY, tickProgress) -> {
-					if (InputHooks.isCurrent(screen, gen)) Overlay.onScreenRender(s, graphics, mouseX, mouseY);
-				});
+				// Handlers from an earlier init may remain on the same screen. Repeated draws within one frame
+				// and repeated presses within a quarter second are ignored, so duplicates do no harm.
+				ScreenEvents.afterExtract(screen).register((s, graphics, mouseX, mouseY, tickProgress) ->
+						Overlay.onScreenRender(s, graphics, mouseX, mouseY));
 				if (screen instanceof VinylScreen vs) {
-					InputHooks.register(screen, gen, vs.inputListener());
+					InputHooks.register(screen, vs.inputListener());
 				} else if (screen instanceof PauseScreen || screen instanceof TitleScreen) {
-					InputHooks.register(screen, gen, Overlay.LISTENER);
+					InputHooks.register(screen, Overlay.LISTENER);
 				}
 			});
 			Diagnostics.screenHookRegistered = true;
