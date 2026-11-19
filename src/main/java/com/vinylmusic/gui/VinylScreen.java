@@ -253,7 +253,7 @@ public final class VinylScreen extends Screen {
 	private final InputHooks.Listener listener = new InputHooks.Listener() {
 		@Override
 		public boolean press(int button, double x, double y) {
-			if (button != 0 && button != 1) return false;
+			if (button != 0) return false;
 			int mx = Double.isNaN(x) ? curMx : (int) Math.floor(x);
 			int my = Double.isNaN(y) ? curMy : (int) Math.floor(y);
 			curMx = mx;
@@ -657,13 +657,14 @@ public final class VinylScreen extends Screen {
 
 	private void drawFolders(GuiGraphicsExtractor g) {
 		MusicManager mm = MusicManager.get();
+		VinylConfig cfg = VinylConfig.get();
 		hot(0, 0, this.width, this.height, () -> {
 		});
 		List<String> folders = mm.libraryFolders();
-		int maxRows = 7;
+		int maxRows = 6;
 		int shown = Math.min(folders.size(), maxRows);
-		int w = Math.min(pw - 16, 430);
-		int h = 78 + (shown + 1) * 20 + (folders.size() > maxRows ? 12 : 0);
+		int w = Math.min(pw - 16, 440);
+		int h = 86 + (shown + 2) * 20 + (folders.size() > maxRows ? 12 : 0);
 		int x = (this.width - w) / 2;
 		int y = (this.height - h) / 2;
 		Ui.rect(g, x - 1, y - 1, w + 2, h + 2, Ui.BORDER);
@@ -672,27 +673,46 @@ public final class VinylScreen extends Screen {
 		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.hint"), w - 16), x + 8, y + 20, Ui.DARK_DIM);
 
 		int ry = y + 36;
-		int bw = Math.max(this.font.width(Ui.tr("folders.open")), this.font.width(Ui.tr("folders.remove"))) + 14;
+		int bw = 0;
+		for (String k : new String[]{"folders.open", "folders.remove", "folders.restore"}) bw = Math.max(bw, this.font.width(Ui.tr(k)) + 14);
 		int bx = x + w - 8 - bw;
-		Ui.text(g, this.font, Ui.fit(this.font, ".minecraft/music_player  (" + Ui.tr("folders.default") + ")", bx - x - 16), x + 8, ry + 4, Ui.TEXT);
-		Ui.button(g, this.font, bx, ry, bw, 16, Ui.tr("folders.open"), hover(bx, ry, bw, 16), false, false);
-		hot(bx, ry, bw, 16, () -> FileDialog.openFolder(VinylConfig.musicDir()));
+		int labelW = bx - x - 16;
+
+		// Default 1: Minecraft's own songs.
+		boolean mc = cfg.showMinecraftMusic;
+		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.minecraft"), labelW), x + 8, ry + 4, mc ? Ui.TEXT : Ui.DARK_DIM);
+		Ui.button(g, this.font, bx, ry, bw, 16, Ui.tr(mc ? "folders.remove" : "folders.restore"), hover(bx, ry, bw, 16), mc, false);
+		hot(bx, ry, bw, 16, () -> mm.setMinecraftMusic(!cfg.showMinecraftMusic));
 		ry += 20;
+
+		// Default 2: the music_player folder.
+		boolean def = cfg.scanMusicFolder;
+		int openW = this.font.width(Ui.tr("folders.open")) + 14;
+		int ox = bx - openW - 4;
+		Ui.text(g, this.font, Ui.fit(this.font, ".minecraft/music_player  (" + Ui.tr("folders.default") + ")", ox - x - 16), x + 8, ry + 4, def ? Ui.TEXT : Ui.DARK_DIM);
+		Ui.button(g, this.font, ox, ry, openW, 16, Ui.tr("folders.open"), hover(ox, ry, openW, 16), false, false);
+		hot(ox, ry, openW, 16, () -> FileDialog.openFolder(VinylConfig.musicDir()));
+		Ui.button(g, this.font, bx, ry, bw, 16, Ui.tr(def ? "folders.remove" : "folders.restore"), hover(bx, ry, bw, 16), def, false);
+		hot(bx, ry, bw, 16, () -> mm.setMusicFolderEnabled(!cfg.scanMusicFolder));
+		ry += 20;
+
 		for (int i = 0; i < shown; i++) {
 			final String f = folders.get(i);
-			Ui.text(g, this.font, Ui.fit(this.font, f, bx - x - 16), x + 8, ry + 4, Ui.TEXT);
+			Ui.text(g, this.font, Ui.fit(this.font, f, labelW), x + 8, ry + 4, Ui.TEXT);
 			Ui.button(g, this.font, bx, ry, bw, 16, Ui.tr("folders.remove"), hover(bx, ry, bw, 16), true, false);
 			hot(bx, ry, bw, 16, () -> mm.removeLibraryFolder(f));
 			ry += 20;
 		}
 		if (folders.size() > maxRows) {
 			Ui.text(g, this.font, Ui.tr("folders.more", folders.size() - maxRows), x + 8, ry + 2, Ui.DARK_DIM);
-			ry += 12;
 		}
+		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.note"), w - 16), x + 8, y + h - 44, Ui.DARK_DIM);
+
 		int by = y + h - 26;
 		int ax = x + 8;
 		ax = btn(g, ax, by, Ui.tr("add_folder"), false, false, this::pickFolder);
-		btn(g, ax, by, Ui.tr("refresh"), false, false, () -> mm.rescanFolder());
+		ax = btn(g, ax, by, Ui.tr("refresh"), false, false, () -> mm.rescanFolder());
+		btn(g, ax, by, Ui.tr("folders.reset"), true, false, mm::resetLibrary);
 		String close = Ui.tr("folders.close");
 		int cw = this.font.width(close) + 14;
 		int cx = x + w - 8 - cw;
@@ -1030,7 +1050,7 @@ public final class VinylScreen extends Screen {
 		rows.add(header("set.sec.audio"));
 		rows.add(slider("set.volume", mm::volume, v -> mm.setVolume(v), () -> Math.round(mm.volume() * 100) + "%"));
 		rows.add(toggle("set.mute_vanilla", () -> cfg.muteVanillaMusic, v -> cfg.muteVanillaMusic = v));
-		rows.add(toggle("set.minecraft_music", () -> cfg.showMinecraftMusic, v -> cfg.showMinecraftMusic = v));
+		rows.add(toggle("set.minecraft_music", () -> cfg.showMinecraftMusic, v -> mm.setMinecraftMusic(v)));
 		rows.add(toggle("set.autoplay", () -> cfg.autoplay, v -> cfg.autoplay = v));
 
 		rows.add(header("set.sec.diag"));

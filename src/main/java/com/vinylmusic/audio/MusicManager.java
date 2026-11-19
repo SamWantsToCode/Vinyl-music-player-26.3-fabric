@@ -220,13 +220,76 @@ public final class MusicManager {
 	}
 
 	private void scanAllFolders() {
-		scanFolderInternal(VinylConfig.musicDir(), false);
+		if (VinylConfig.get().scanMusicFolder) scanFolderInternal(VinylConfig.musicDir(), false);
 		for (String f : new ArrayList<>(VinylConfig.get().libraryFolders)) {
 			scanFolderInternal(Path.of(f), true, f);
 		}
 	}
 
 	private boolean vanillaLoaded;
+
+	private String defaultFolderKey() {
+		return VinylConfig.musicDir().toAbsolutePath().toString();
+	}
+
+	/** Removes songs from the list. The files on disk are never touched. */
+	private void removeTracksWhere(java.util.function.Predicate<Track> test) {
+		Track cur = current;
+		if (cur != null && test.test(cur)) {
+			player.stop();
+			localPlaying = false;
+			current = null;
+		}
+		playlist.removeIf(test);
+		synchronized (queue) {
+			queue.removeIf(test);
+		}
+		persistPlaylist();
+	}
+
+	/** Shows or hides the songs that ship with Minecraft. */
+	public void setMinecraftMusic(boolean on) {
+		VinylConfig cfg = VinylConfig.get();
+		cfg.showMinecraftMusic = on;
+		VinylConfig.markDirty();
+		if (on) {
+			pendingScans++;
+			scanner.submit(() -> {
+				try {
+					loadVanilla();
+				} finally {
+					pendingScans--;
+				}
+			});
+		} else {
+			removeTracksWhere(t -> t.vanilla);
+			vanillaLoaded = false;
+		}
+	}
+
+	/** Starts or stops reading the default music_player folder. */
+	public void setMusicFolderEnabled(boolean on) {
+		VinylConfig cfg = VinylConfig.get();
+		cfg.scanMusicFolder = on;
+		VinylConfig.markDirty();
+		if (on) {
+			rescanFolder();
+		} else {
+			String key = defaultFolderKey();
+			removeTracksWhere(t -> key.equals(t.folder));
+		}
+	}
+
+	/** Back to the defaults: Minecraft songs and the music_player folder, without extra folders. */
+	public void resetLibrary() {
+		VinylConfig cfg = VinylConfig.get();
+		String key = defaultFolderKey();
+		cfg.libraryFolders.clear();
+		removeTracksWhere(t -> t.folder != null && !key.equals(t.folder));
+		setMusicFolderEnabled(true);
+		setMinecraftMusic(true);
+		VinylConfig.markDirty();
+	}
 
 	private void loadVanilla() {
 		if (vanillaLoaded) return;

@@ -1,5 +1,6 @@
 package com.vinylmusic.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.vinylmusic.client.Diagnostics;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -35,7 +36,7 @@ public final class InputHooks {
 	private static int logged;
 
 	private static void note(String source, int button, Object screen) {
-		lastPress = source + " button " + button + " on " + screen.getClass().getSimpleName();
+		lastPress = source + " " + (button == 0 ? "left" : (button == 1 ? "right" : "other")) + " on " + screen.getClass().getSimpleName();
 		if (logged < 12) {
 			logged++;
 			Diagnostics.LOG.info("[VinylMusicPlayer] Mouse press via {}: button {} on {}", source, button, screen.getClass().getName());
@@ -56,7 +57,7 @@ public final class InputHooks {
 						if (method.getDeclaringClass() == Object.class) return objectMethod(proxy, method, args);
 						if (args != null) {
 							double[] xy = {Double.NaN, Double.NaN};
-							int button = readMouse(args, xy);
+							int button = logical(readMouse(args, xy));
 							eventPresses++;
 							note("event", button, screen);
 							// The position comes from the last drawn frame, not from the event.
@@ -79,7 +80,7 @@ public final class InputHooks {
 						if (method.getDeclaringClass() == Object.class) return objectMethod(proxy, method, args);
 						if (args != null) {
 							double[] xy = {Double.NaN, Double.NaN};
-							int button = readMouse(args, xy);
+							int button = logical(readMouse(args, xy));
 							listener.release(button);
 						}
 						return method.getReturnType() == boolean.class ? (Object) Boolean.TRUE : null;
@@ -110,6 +111,16 @@ public final class InputHooks {
 			case "equals" -> proxy == args[0];
 			default -> "VinylMusicPlayer mouse hook";
 		};
+	}
+
+	/**
+	 * Minecraft 26.3 numbers mouse buttons the SDL way (left 1, right 3), older versions the GLFW way (left 0, right 1).
+	 * The game's own constants are compared here once, so everything else uses 0 for left, 1 for right and 2 for any other.
+	 */
+	static int logical(int raw) {
+		if (raw == InputConstants.MOUSE_BUTTON_LEFT) return 0;
+		if (raw == InputConstants.MOUSE_BUTTON_RIGHT) return 1;
+		return 2;
 	}
 
 	/** Reads x, y and button from either (screen, x, y, button) or (screen, MouseButtonEvent). */

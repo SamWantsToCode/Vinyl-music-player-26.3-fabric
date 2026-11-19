@@ -23,6 +23,11 @@ Realms and any server without installing anything on the server.
 If the run is red, open it, copy the red error lines and send them to the developer.
 If the mod does nothing in game, send `.minecraft/logs/latest.log`. Search it for "VinylMusicPlayer".
 
+## Mouse buttons in 26.3
+
+Minecraft 26.3 numbers mouse buttons the SDL way (left 1, right 3). The mod reads the game's own
+`InputConstants.MOUSE_BUTTON_LEFT` and `MOUSE_BUTTON_RIGHT`, so it works on 26.3 and on older versions.
+
 ## Using it
 
 - Open the pause menu (Escape) or the title screen: the disc shows with its song card.
@@ -36,6 +41,8 @@ If the mod does nothing in game, send `.minecraft/logs/latest.log`. Search it fo
   - Add New Song picks files. Folders keeps a list of folders (as many as you like) next to the default
     `.minecraft/music_player/`. New files in those folders appear when you press Rescan Folder or reopen the screen.
   - Click a song for Play Now, Play Next, Add to Queue. Your own songs also get Edit Song Info / Custom Cover and Remove.
+  - In Folders, the two defaults (Minecraft songs and the music_player folder) have Remove and Restore buttons.
+    Remove only stops listing the songs. No file is ever deleted. Reset all goes back to the two defaults only.
   - Delete All Songs removes the songs and folders you added. Minecraft's songs stay.
 - Songs you add are .mp3, .ogg and .wav.
 - The disc shows what THIS player plays. Music Minecraft plays by itself is separate. Use the Music slider in the mixer for that.

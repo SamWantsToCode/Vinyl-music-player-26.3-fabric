@@ -141,7 +141,7 @@
   "vinylmusicplayer.diag.input": "Eventos de ratón: pulsar enlazado %s, soltar enlazado %s, pulsaciones recibidas %s, pulsaciones de respaldo %s",
   "vinylmusicplayer.folders": "Carpetas (%s)",
   "vinylmusicplayer.folders.title": "Carpetas de música",
-  "vinylmusicplayer.folders.hint": "Las canciones de estas carpetas aparecen en tu lista. Las canciones de Minecraft siempre se incluyen.",
+  "vinylmusicplayer.folders.hint": "Quitar solo deja de mostrar las canciones. Tus archivos nunca se borran. Restaurar las devuelve.",
   "vinylmusicplayer.folders.default": "siempre se lee",
   "vinylmusicplayer.folders.open": "Abrir",
   "vinylmusicplayer.folders.remove": "Quitar",
@@ -170,5 +170,9 @@
   "vinylmusicplayer.cat.ALL": "Todos los sonidos (general)",
   "vinylmusicplayer.cat.ALL.hint": "Todo lo que suena en el juego",
   "vinylmusicplayer.diag.disc": "Clics del disco procesados: %s. Último: %s",
-  "vinylmusicplayer.diag.last_press": "Última pulsación de ratón vista: %s"
+  "vinylmusicplayer.diag.last_press": "Última pulsación de ratón vista: %s",
+  "vinylmusicplayer.folders.minecraft": "Canciones de Minecraft (por defecto)",
+  "vinylmusicplayer.folders.restore": "Restaurar",
+  "vinylmusicplayer.folders.reset": "Restablecer todo",
+  "vinylmusicplayer.folders.note": "Restablecer todo: vuelve solo a las canciones de Minecraft y la carpeta music_player."
 }

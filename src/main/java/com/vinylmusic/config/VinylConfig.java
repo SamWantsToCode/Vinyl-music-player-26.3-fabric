@@ -83,6 +83,8 @@ public final class VinylConfig {
 	public boolean autoplay = false;
 	/** List the songs that ship with Minecraft next to your own. */
 	public boolean showMinecraftMusic = true;
+	/** Scan the default music_player folder. */
+	public boolean scanMusicFolder = true;
 	public List<String> playlist = new ArrayList<>();
 	/** Folders that are scanned for songs, next to the default music_player folder. */
 	public List<String> libraryFolders = new ArrayList<>();
