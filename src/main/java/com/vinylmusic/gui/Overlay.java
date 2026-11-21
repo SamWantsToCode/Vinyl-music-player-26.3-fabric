@@ -28,7 +28,7 @@ public final class Overlay {
 	private static final int CH = 72;
 	private static final int MENU_W = 150;
 	private static final int MENU_ROW = 14;
-	private static final String[] MENU_KEYS = {"menu.disc_bigger", "menu.disc_smaller", "menu.card_bigger", "menu.card_smaller", "menu.reset", "menu.settings"};
+	private static final String[] MENU_KEYS = {"menu.disc_bigger", "menu.disc_smaller", "menu.card_bigger", "menu.card_smaller", "menu.reset", "menu.hide", "menu.settings"};
 
 	private static boolean leftHeld;
 	private static boolean rightHeld;
@@ -334,6 +334,12 @@ public final class Overlay {
 			case 4 -> {
 				cfg.scale = 1.0f;
 				cfg.cardScale = 1.0f;
+			}
+			case 5 -> {
+				// Hide the disc on this kind of screen. Settings has the switch to bring it back.
+				if (lastScreen instanceof TitleScreen) cfg.showOnTitleScreen = false;
+				else cfg.showOnPauseMenu = false;
+				menuOpen = false;
 			}
 			default -> {
 				pendingParent = lastScreen;

@@ -9,4 +9,4 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'vinyl-music-player'
+rootProject.name = 'needledrop'

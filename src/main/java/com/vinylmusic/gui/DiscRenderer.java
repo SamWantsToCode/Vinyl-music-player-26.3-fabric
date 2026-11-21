@@ -1,5 +1,7 @@
 package com.vinylmusic.gui;
 
+import com.vinylmusic.audio.CoverArt;
+import com.vinylmusic.audio.Track;
 import com.vinylmusic.config.VinylConfig;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -42,6 +44,7 @@ public final class DiscRenderer {
 
 	public static void draw(GuiGraphicsExtractor g, int cx, int cy, int diameter, int[] cover, String seed, float alpha) {
 		VinylConfig cfg = VinylConfig.get();
+		if (DiscTexture.draw(g, cx, cy, diameter, cover, seed, angle)) return;
 		List<int[]> rects = bodyFor(cfg);
 		var pose = g.pose();
 		pose.pushMatrix();
@@ -53,8 +56,8 @@ public final class DiscRenderer {
 		for (int[] r : rects) {
 			g.fill(r[0], r[1], r[2], r[3], Ui.alpha(r[4], alpha));
 		}
-		if (cover != null && cover.length == 400) {
-			drawCoverLabel(g, cover, alpha);
+		if (cover != null && cover.length == Track.COVER_SIZE * Track.COVER_SIZE) {
+			drawCoverLabel(g, coverGrid(cover), alpha);
 		} else {
 			drawDefaultLabel(g, seed == null ? "" : seed, cfg, alpha);
 		}
@@ -62,6 +65,18 @@ public final class DiscRenderer {
 		disc(g, 4, Ui.alpha(0xFFC8C8D0, alpha));
 		disc(g, 2, Ui.alpha(0xFF050505, alpha));
 		pose.popMatrix();
+	}
+
+	private static int[] gridSource;
+	private static int[] gridCache;
+
+	/** 20 by 20 version of a cover for the rectangle disc. Cached for the current cover. */
+	static int[] coverGrid(int[] cover) {
+		if (cover != gridSource) {
+			gridSource = cover;
+			gridCache = CoverArt.resample(cover, Track.COVER_SIZE, 20);
+		}
+		return gridCache;
 	}
 
 	private static void drawCoverLabel(GuiGraphicsExtractor g, int[] cover, float alpha) {

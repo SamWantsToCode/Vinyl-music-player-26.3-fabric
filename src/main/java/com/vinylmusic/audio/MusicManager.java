@@ -60,7 +60,7 @@ public final class MusicManager {
 			try {
 				for (String s : saved) {
 					Path p = Path.of(s);
-					if (Files.isRegularFile(p)) playlist.add(load(p));
+					if (Files.isRegularFile(p)) addTrack(load(p));
 				}
 				scanAllFolders();
 				if (cfg.showMinecraftMusic) loadVanilla();
@@ -177,7 +177,7 @@ public final class MusicManager {
 			try {
 				for (Path p : files) {
 					if (Files.isRegularFile(p) && MetadataReader.isSupported(p) && !contains(p)) {
-						playlist.add(load(p));
+						addTrack(load(p));
 					}
 				}
 			} finally {
@@ -227,6 +227,40 @@ public final class MusicManager {
 	}
 
 	private boolean vanillaLoaded;
+	private volatile int version;
+
+	/** Changes whenever the list changes, so the screen only rebuilds its filtered view when needed. */
+	public int version() {
+		return version;
+	}
+
+	private void addTrack(Track t) {
+		playlist.add(t);
+		version++;
+	}
+
+	private java.util.Set<String> hiddenSet() {
+		return new java.util.HashSet<>(VinylConfig.get().hiddenSongs);
+	}
+
+	public int hiddenCount() {
+		return VinylConfig.get().hiddenSongs.size();
+	}
+
+	private void hide(String key) {
+		VinylConfig cfg = VinylConfig.get();
+		if (!cfg.hiddenSongs.contains(key)) {
+			cfg.hiddenSongs.add(key);
+			VinylConfig.markDirty();
+		}
+	}
+
+	/** Brings back every song you removed one by one. */
+	public void restoreHiddenSongs() {
+		VinylConfig.get().hiddenSongs.clear();
+		VinylConfig.markDirty();
+		rescanFolder();
+	}
 
 	private String defaultFolderKey() {
 		return VinylConfig.musicDir().toAbsolutePath().toString();
@@ -241,6 +275,7 @@ public final class MusicManager {
 			current = null;
 		}
 		playlist.removeIf(test);
+		version++;
 		synchronized (queue) {
 			queue.removeIf(test);
 		}
@@ -285,6 +320,7 @@ public final class MusicManager {
 		VinylConfig cfg = VinylConfig.get();
 		String key = defaultFolderKey();
 		cfg.libraryFolders.clear();
+		cfg.hiddenSongs.clear();
 		removeTracksWhere(t -> t.folder != null && !key.equals(t.folder));
 		setMusicFolderEnabled(true);
 		setMinecraftMusic(true);
@@ -294,7 +330,7 @@ public final class MusicManager {
 	private void loadVanilla() {
 		if (vanillaLoaded) return;
 		vanillaLoaded = true;
-		playlist.addAll(VanillaMusic.load());
+		for (Track t : VanillaMusic.load(hiddenSet())) addTrack(t);
 	}
 
 	private void scanFolderInternal(Path dir, boolean recursive) {
@@ -306,10 +342,10 @@ public final class MusicManager {
 		try (Stream<Path> s = recursive ? Files.walk(dir, 6) : Files.list(dir)) {
 			List<Path> found = s.filter(Files::isRegularFile).filter(MetadataReader::isSupported).sorted().toList();
 			for (Path p : found) {
-				if (!contains(p)) {
+				if (!contains(p) && !VinylConfig.get().hiddenSongs.contains(p.toAbsolutePath().toString())) {
 					Track t = load(p);
 					t.folder = tag == null ? dir.toAbsolutePath().toString() : tag;
-					playlist.add(t);
+					addTrack(t);
 				}
 			}
 		} catch (Exception e) {
@@ -325,10 +361,12 @@ public final class MusicManager {
 		return false;
 	}
 
+	/** Takes one song out of the list. Its file is never deleted. Songs from folders and from Minecraft stay out after a rescan. */
 	public void remove(Track t) {
-		if (t.vanilla) return;
 		boolean wasCurrent = t == current;
+		if (t.vanilla || t.folder != null) hide(t.key);
 		playlist.remove(t);
+		version++;
 		synchronized (queue) {
 			queue.remove(t);
 		}
@@ -350,6 +388,7 @@ public final class MusicManager {
 			current = null;
 		}
 		playlist.removeIf(t -> !t.vanilla);
+		version++;
 		synchronized (queue) {
 			queue.removeIf(t -> !t.vanilla);
 		}

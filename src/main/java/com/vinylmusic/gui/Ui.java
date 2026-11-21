@@ -9,18 +9,19 @@ public final class Ui {
 	private Ui() {
 	}
 
-	public static final int PANEL = 0xF0181820;
-	public static final int BORDER = 0xFF34343F;
-	public static final int BTN = 0xFF2A2A35;
-	public static final int BTN_HOVER = 0xFF3B3B4A;
-	public static final int DANGER = 0xFF7A2E2E;
-	public static final int DANGER_HOVER = 0xFF9A3C3C;
-	public static final int ACCENT = 0xFFE9A23B;
-	public static final int TEXT = 0xFFFFFFFF;
-	public static final int DIM = 0xFF9A9AA8;
-	public static final int DARK_DIM = 0xFF6C6C7A;
-	public static final int ROW_HOVER = 0x30FFFFFF;
-	public static final int ROW_SELECT = 0x40E9A23B;
+	public static final int PANEL = 0xF2101116;
+	public static final int BORDER = 0xFF262833;
+	public static final int BTN = 0xFF1E202A;
+	public static final int BTN_HOVER = 0xFF2B2D3A;
+	public static final int DANGER = 0xFF7A3340;
+	public static final int DANGER_HOVER = 0xFF9A4251;
+	/** Highlight color. VinylScreen refreshes it from the settings every frame. */
+	public static int ACCENT = 0xFFA78BFA;
+	public static final int TEXT = 0xFFF2F3F7;
+	public static final int DIM = 0xFF9296A6;
+	public static final int DARK_DIM = 0xFF626676;
+	public static final int ROW_HOVER = 0x22FFFFFF;
+	public static final int ROW_SELECT = 0x40A78BFA;
 
 	public static String tr(String key) {
 		return Component.translatable("vinylmusicplayer." + key).getString();
@@ -51,6 +52,42 @@ public final class Ui {
 
 	public static void rect(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
 		g.fill(x, y, x + w, y + h, color);
+	}
+
+	private static final int[][] INSETS = new int[8][];
+
+	static {
+		for (int r = 1; r < 8; r++) {
+			INSETS[r] = new int[r];
+			for (int i = 0; i < r; i++) {
+				double dy = r - i - 0.5;
+				INSETS[r][i] = r - (int) Math.round(Math.sqrt(r * r - dy * dy));
+			}
+		}
+	}
+
+	/** Filled rectangle with rounded corners of radius r (up to 7 px). */
+	public static void round(GuiGraphicsExtractor g, int x, int y, int w, int h, int r, int color) {
+		if (w <= 0 || h <= 0) return;
+		r = Math.min(Math.min(r, 7), Math.min(w, h) / 2);
+		if (r <= 0) {
+			g.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		int[] ins = INSETS[r];
+		for (int i = 0; i < r; i++) {
+			g.fill(x + ins[i], y + i, x + w - ins[i], y + i + 1, color);
+			g.fill(x + ins[i], y + h - 1 - i, x + w - ins[i], y + h - i, color);
+		}
+		g.fill(x, y + r, x + w, y + h - r, color);
+	}
+
+	/** Small on/off switch, 28 by 14. */
+	public static void toggle(GuiGraphicsExtractor g, int x, int y, boolean on, boolean hover) {
+		int track = on ? ACCENT : (hover ? 0xFF3C3F4E : 0xFF2E303C);
+		round(g, x, y, 28, 14, 7, track);
+		int kx = on ? x + 16 : x + 2;
+		round(g, kx, y + 2, 10, 10, 5, 0xFFFFFFFF);
 	}
 
 	public static void border(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
@@ -84,22 +121,21 @@ public final class Ui {
 
 	public static void button(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, String label,
 							  boolean hover, boolean danger, boolean active) {
-		int bg = danger ? (hover ? DANGER_HOVER : DANGER) : (hover ? BTN_HOVER : BTN);
-		rect(g, x, y, w, h, bg);
-		if (active) {
-			rect(g, x, y + h - 2, w, 2, ACCENT);
-		}
+		int bg;
+		if (danger) bg = hover ? DANGER_HOVER : DANGER;
+		else if (active) bg = mix(hover ? 0xFF2B2D3A : 0xFF1E202A, ACCENT, hover ? 0.38f : 0.30f);
+		else bg = hover ? BTN_HOVER : BTN;
+		round(g, x, y, w, h, 3, bg);
 		centered(g, font, label, x + w / 2, y + (h - 8) / 2, TEXT);
 	}
 
 	public static void slider(GuiGraphicsExtractor g, int x, int y, int w, int h, float value, boolean hover) {
 		int ty = y + h / 2 - 2;
-		rect(g, x, ty, w, 4, 0xFF0E0E14);
+		round(g, x, ty, w, 4, 2, 0xFF2A2C37);
 		int fillW = Math.round(w * Math.max(0f, Math.min(1f, value)));
-		rect(g, x, ty, fillW, 4, ACCENT);
-		int hx = x + fillW - 2;
-		hx = Math.max(x, Math.min(x + w - 4, hx));
-		rect(g, hx, y + 1, 4, h - 2, hover ? 0xFFFFFFFF : 0xFFE0E0E0);
+		if (fillW > 0) round(g, x, ty, fillW, 4, 2, ACCENT);
+		int hx = Math.max(x, Math.min(x + w - 8, x + fillW - 4));
+		round(g, hx, y + h / 2 - 4, 8, 8, 4, hover ? 0xFFFFFFFF : 0xFFE6E7EE);
 	}
 
 	/** Draws text that scrolls sideways when it is wider than the box. */

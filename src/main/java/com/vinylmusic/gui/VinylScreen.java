@@ -112,6 +112,7 @@ public final class VinylScreen extends Screen {
 	@Override
 	protected void init() {
 		computeLayout();
+		settingsCache = null;
 		if (!scannedOnce) {
 			scannedOnce = true;
 			MusicManager.get().rescanFolder();
@@ -240,6 +241,7 @@ public final class VinylScreen extends Screen {
 		super.extractBackground(g, mx, my, delta);
 		curMx = mx;
 		curMy = my;
+		Ui.ACCENT = 0xFF000000 | VinylConfig.get().accentColor;
 		hots.clear();
 		DiscRenderer.advance(MusicManager.get().isPlaying());
 		drawUi(g);
@@ -322,17 +324,16 @@ public final class VinylScreen extends Screen {
 
 	private void drawUi(GuiGraphicsExtractor g) {
 		computeLayout();
-		Ui.rect(g, px, py, pw, ph, Ui.PANEL);
-		Ui.border(g, px, py, pw, ph, Ui.BORDER);
-		Ui.rect(g, px, py, pw, 2, Ui.ACCENT);
+		Ui.round(g, px - 2, py - 2, pw + 4, ph + 4, 7, 0x38000000);
+		Ui.round(g, px, py, pw, ph, 6, Ui.PANEL);
 
 		MusicManager mm = MusicManager.get();
 		// Small spinning disc in the header.
 		DiscRenderer.draw(g, px + 18, py + 17, 20, mm.cover(), mm.title() + mm.artist());
-		Ui.textShadow(g, this.font, Ui.tr("title"), px + 34, py + 9, Ui.TEXT);
+		Ui.text(g, this.font, Ui.tr("title"), px + 34, py + 9, Ui.TEXT);
 
 		int closeX = px + pw - 22;
-		Ui.button(g, this.font, closeX, py + 6, 16, 14, "X", hover(closeX, py + 6, 16, 14), true, false);
+		Ui.button(g, this.font, closeX, py + 6, 16, 14, "x", hover(closeX, py + 6, 16, 14), hover(closeX, py + 6, 16, 14), false);
 		hot(closeX, py + 6, 16, 14, this::onClose);
 
 		String[] names = {Ui.tr("tab.music"), Ui.tr("tab.mixer"), Ui.tr("tab.settings")};
@@ -352,6 +353,7 @@ public final class VinylScreen extends Screen {
 			case SETTINGS -> drawSettings(g);
 		}
 		drawFooter(g);
+		if (confirmClear || showFolders || editing != null) Ui.round(g, px, py, pw, ph, 6, 0xA0000000);
 		if (confirmClear) drawConfirm(g);
 		if (showFolders) drawFolders(g);
 		if (editing != null) drawEdit(g);
@@ -360,7 +362,7 @@ public final class VinylScreen extends Screen {
 	private void drawFooter(GuiGraphicsExtractor g) {
 		MusicManager mm = MusicManager.get();
 		int y = py + ph - 24;
-		Ui.rect(g, px + 6, y - 3, pw - 12, 1, Ui.BORDER);
+		Ui.rect(g, px + 8, y - 4, pw - 16, 1, 0xFF1F212B);
 		int volW = 80;
 		int volX = px + pw - 8 - volW - 30;
 		int trX = volX - 90;
@@ -378,9 +380,9 @@ public final class VinylScreen extends Screen {
 		boolean h1 = hover(trX, y, 28, 16);
 		boolean h2 = hover(trX + 30, y, 28, 16);
 		boolean h3 = hover(trX + 60, y, 28, 16);
-		Ui.rect(g, trX, y, 28, 16, h1 ? Ui.BTN_HOVER : Ui.BTN);
-		Ui.rect(g, trX + 30, y, 28, 16, h2 ? Ui.BTN_HOVER : Ui.BTN);
-		Ui.rect(g, trX + 60, y, 28, 16, h3 ? Ui.BTN_HOVER : Ui.BTN);
+		Ui.round(g, trX, y, 28, 16, 3, h1 ? Ui.BTN_HOVER : Ui.BTN);
+		Ui.round(g, trX + 30, y, 28, 16, 3, h2 ? Ui.BTN_HOVER : Ui.BTN);
+		Ui.round(g, trX + 60, y, 28, 16, 3, h3 ? Ui.BTN_HOVER : Ui.BTN);
 		Ui.iconPrev(g, trX + 9, cy, Ui.TEXT);
 		if (playing) Ui.iconPause(g, trX + 41, cy, Ui.ACCENT);
 		else Ui.iconPlay(g, trX + 41, cy, Ui.ACCENT);
@@ -396,17 +398,25 @@ public final class VinylScreen extends Screen {
 
 	// ------------------------------------------------------------------ music tab
 
+	private List<Track> filteredCache = List.of();
+	private String filteredKey = "";
+
+	/** Rebuilt only when the search text, the filter or the song list changes. */
 	private List<Track> filtered() {
-		List<Track> all = MusicManager.get().playlist();
+		MusicManager mm = MusicManager.get();
+		String key = searchText + "|" + listFilter + "|" + mm.version();
+		if (key.equals(filteredKey)) return filteredCache;
+		filteredKey = key;
 		String f = searchText.toLowerCase(Locale.ROOT).trim();
 		List<Track> out = new ArrayList<>();
-		for (Track t : all) {
+		for (Track t : mm.playlist()) {
 			if (listFilter == 1 && t.vanilla) continue;
 			if (listFilter == 2 && !t.vanilla) continue;
 			if (!f.isEmpty() && !(t.title.toLowerCase(Locale.ROOT).contains(f) || t.artist.toLowerCase(Locale.ROOT).contains(f)
 					|| t.album.toLowerCase(Locale.ROOT).contains(f))) continue;
 			out.add(t);
 		}
+		filteredCache = out;
 		return out;
 	}
 
@@ -424,10 +434,8 @@ public final class VinylScreen extends Screen {
 				needsRebuild = true;
 			});
 			x = btn(g, x, y, Ui.tr("refresh"), false, false, () -> MusicManager.get().rescanFolder());
-			btn(g, x, y, Ui.tr("delete_all"), true, false, () -> {
-				confirmClear = true;
-				needsRebuild = true;
-			});
+			btn(g, x, y, Ui.tr("mc_songs") + ": " + Ui.tr(cfg.showMinecraftMusic ? "on" : "off"), false, cfg.showMinecraftMusic,
+					() -> mm.setMinecraftMusic(!cfg.showMinecraftMusic));
 		}
 		// Second row: toggles.
 		String[] rb = musicRowBLabels();
@@ -466,7 +474,7 @@ public final class VinylScreen extends Screen {
 		int rows = Math.max(1, (bottom - top) / rowH);
 		int maxScroll = Math.max(0, view.size() - rows);
 		musicScroll = Math.max(0, Math.min(musicScroll, maxScroll));
-		Ui.rect(g, px + 6, top - 2, pw - 12, bottom - top + 4, 0x40000000);
+		Ui.round(g, px + 6, top - 2, pw - 12, bottom - top + 4, 4, 0x30000000);
 
 		if (view.isEmpty()) {
 			String msg = mm.isScanning() ? Ui.tr("scanning") : Ui.tr("no_songs");
@@ -493,16 +501,24 @@ public final class VinylScreen extends Screen {
 			int tx = rx + 28;
 			String dur = Ui.time(t.durationMs);
 			int durW = this.font.width(dur);
-			int textW = listW - 28 - durW - 12;
+			int textW = listW - 28 - durW - 34;
 			Ui.text(g, this.font, Ui.fit(this.font, t.title, textW), tx, ry + 3, isCur ? Ui.ACCENT : Ui.TEXT);
 			String sub = t.artist.isEmpty() ? t.album : (t.album.isEmpty() ? t.artist : t.artist + " - " + t.album);
 			Ui.text(g, this.font, Ui.fit(this.font, sub, textW), tx, ry + 12, Ui.DIM);
-			Ui.text(g, this.font, dur, rx + listW - durW - 6, ry + 7, Ui.DIM);
+			Ui.text(g, this.font, dur, rx + listW - durW - 26, ry + 7, Ui.DIM);
 			hot(rx, ry, listW, rowH, () -> {
 				popTrack = t;
 				popX = curMx;
 				popY = curMy;
 			});
+			// Quick remove, shown while the row is hovered. Files are never deleted.
+			int xx = rx + listW - 20;
+			boolean hx = hover(xx, ry + 3, 16, 16);
+			if (hv) {
+				Ui.round(g, xx, ry + 3, 16, 16, 3, hx ? Ui.DANGER_HOVER : 0xFF2A2C37);
+				Ui.centered(g, this.font, "x", xx + 8, ry + 7, Ui.TEXT);
+			}
+			hot(xx, ry + 3, 16, 16, () -> MusicManager.get().remove(t));
 		}
 		drawScrollbar(g, top, bottom, view.size(), rows, musicScroll, v -> musicScroll = v);
 
@@ -561,22 +577,23 @@ public final class VinylScreen extends Screen {
 				},
 				() -> mm.remove(t)
 		};
+		int[] order = t.vanilla ? new int[]{0, 1, 2, 4} : new int[]{0, 1, 2, 3, 4};
+		int count = order.length;
 		int w = 10;
-		for (int k = 0; k < (t.vanilla ? 3 : labels.length); k++) w = Math.max(w, this.font.width(labels[k]) + 18);
-		int count = t.vanilla ? 3 : labels.length;
+		for (int k = 0; k < count; k++) w = Math.max(w, this.font.width(labels[order[k]]) + 18);
 		int h = count * 17 + 6;
 		int x = Math.min(popX, px + pw - w - 4);
 		int y = Math.min(popY, py + ph - h - 4);
-		Ui.rect(g, x - 1, y - 1, w + 2, h + 2, Ui.BORDER);
-		Ui.rect(g, x, y, w, h, 0xFF202029);
+		Ui.round(g, x - 1, y - 1, w + 2, h + 2, 4, Ui.BORDER);
+		Ui.round(g, x, y, w, h, 4, 0xFF1A1C25);
 		Ui.text(g, this.font, Ui.fit(this.font, t.title, w - 8), x + 4, y - 11, Ui.TEXT);
 		for (int i = 0; i < count; i++) {
 			int iy = y + 3 + i * 17;
-			boolean danger = !t.vanilla && i == labels.length - 1;
+			boolean danger = order[i] == 4;
 			boolean hv = hover(x + 2, iy, w - 4, 16);
-			Ui.rect(g, x + 2, iy, w - 4, 16, hv ? (danger ? Ui.DANGER_HOVER : Ui.BTN_HOVER) : 0x00000000);
-			Ui.text(g, this.font, labels[i], x + 8, iy + 4, danger ? 0xFFFF9A9A : Ui.TEXT);
-			final Runnable act = acts[i];
+			if (hv) Ui.round(g, x + 2, iy, w - 4, 16, 3, danger ? Ui.DANGER_HOVER : Ui.BTN_HOVER);
+			Ui.text(g, this.font, labels[order[i]], x + 8, iy + 4, danger ? 0xFFFF9A9A : Ui.TEXT);
+			final Runnable act = acts[order[i]];
 			hot(x + 2, iy, w - 4, 16, () -> {
 				popTrack = null;
 				act.run();
@@ -587,10 +604,11 @@ public final class VinylScreen extends Screen {
 	private void drawSystemPanel(GuiGraphicsExtractor g, int top, int bottom) {
 		MusicManager mm = MusicManager.get();
 		var sys = mm.system();
-		Ui.rect(g, px + 6, top - 2, pw - 12, bottom - top + 4, 0x40000000);
+		Ui.round(g, px + 6, top - 2, pw - 12, bottom - top + 4, 4, 0x30000000);
 		int[] cover = sys.cover;
 		int bx = px + 16;
-		if (cover != null && cover.length == 400) {
+		if (cover != null && cover.length == com.vinylmusic.audio.Track.COVER_SIZE * com.vinylmusic.audio.Track.COVER_SIZE) {
+			cover = DiscRenderer.coverGrid(cover);
 			for (int j = 0; j < 20; j++) {
 				for (int i = 0; i < 20; i++) {
 					g.fill(bx + i * 4, top + 8 + j * 4, bx + i * 4 + 4, top + 12 + j * 4, cover[j * 20 + i]);
@@ -635,8 +653,8 @@ public final class VinylScreen extends Screen {
 		int h = 70;
 		int x = (this.width - w) / 2;
 		int y = (this.height - h) / 2;
-		Ui.rect(g, x - 1, y - 1, w + 2, h + 2, Ui.BORDER);
-		Ui.rect(g, x, y, w, h, 0xFF202029);
+		Ui.round(g, x - 1, y - 1, w + 2, h + 2, 5, 0xFF2C2E3B);
+		Ui.round(g, x, y, w, h, 5, 0xFF0F1015);
 		Ui.centered(g, this.font, Ui.tr("confirm.delete_all"), x + w / 2, y + 14, Ui.TEXT);
 		int bw = 80;
 		int by = y + h - 26;
@@ -664,11 +682,12 @@ public final class VinylScreen extends Screen {
 		int maxRows = 6;
 		int shown = Math.min(folders.size(), maxRows);
 		int w = Math.min(pw - 16, 440);
-		int h = 86 + (shown + 2) * 20 + (folders.size() > maxRows ? 12 : 0);
+		int hid = mm.hiddenCount();
+		int h = 106 + (shown + 2) * 20 + (folders.size() > maxRows ? 12 : 0) + (hid > 0 ? 20 : 0);
 		int x = (this.width - w) / 2;
 		int y = (this.height - h) / 2;
-		Ui.rect(g, x - 1, y - 1, w + 2, h + 2, Ui.BORDER);
-		Ui.rect(g, x, y, w, h, 0xFF202029);
+		Ui.round(g, x - 1, y - 1, w + 2, h + 2, 5, 0xFF2C2E3B);
+		Ui.round(g, x, y, w, h, 5, 0xFF0F1015);
 		Ui.text(g, this.font, Ui.tr("folders.title"), x + 8, y + 7, Ui.ACCENT);
 		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.hint"), w - 16), x + 8, y + 20, Ui.DARK_DIM);
 
@@ -705,7 +724,25 @@ public final class VinylScreen extends Screen {
 		}
 		if (folders.size() > maxRows) {
 			Ui.text(g, this.font, Ui.tr("folders.more", folders.size() - maxRows), x + 8, ry + 2, Ui.DARK_DIM);
+			ry += 12;
 		}
+		if (hid > 0) {
+			Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.removed", hid), labelW), x + 8, ry + 4, Ui.DIM);
+			Ui.button(g, this.font, bx, ry, bw, 16, Ui.tr("folders.restore"), hover(bx, ry, bw, 16), false, false);
+			hot(bx, ry, bw, 16, mm::restoreHiddenSongs);
+		}
+		ry += (hid > 0 ? 20 : 0);
+		long mine = mm.playlist().stream().filter(t -> !t.vanilla).count();
+		String del = Ui.tr("delete_all");
+		int dw = this.font.width(del) + 14;
+		int dx = x + w - 8 - dw;
+		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.mine", mine), dx - x - 16), x + 8, ry + 4, Ui.DIM);
+		Ui.button(g, this.font, dx, ry, dw, 16, del, hover(dx, ry, dw, 16), true, false);
+		hot(dx, ry, dw, 16, () -> {
+			showFolders = false;
+			confirmClear = true;
+			needsRebuild = true;
+		});
 		Ui.text(g, this.font, Ui.fit(this.font, Ui.tr("folders.note"), w - 16), x + 8, y + h - 44, Ui.DARK_DIM);
 
 		int by = y + h - 26;
@@ -730,8 +767,8 @@ public final class VinylScreen extends Screen {
 		int h = 150;
 		int x = (this.width - w) / 2;
 		int y = (this.height - h) / 2;
-		Ui.rect(g, x - 1, y - 1, w + 2, h + 2, Ui.BORDER);
-		Ui.rect(g, x, y, w, h, 0xFF202029);
+		Ui.round(g, x - 1, y - 1, w + 2, h + 2, 5, 0xFF2C2E3B);
+		Ui.round(g, x, y, w, h, 5, 0xFF0F1015);
 		Ui.text(g, this.font, Ui.tr("action.edit"), x + 8, y + 6, Ui.ACCENT);
 		Ui.text(g, this.font, Ui.tr("edit.title"), x + 8, y + 26, Ui.DIM);
 		Ui.text(g, this.font, Ui.tr("edit.artist"), x + 8, y + 48, Ui.DIM);
@@ -845,7 +882,7 @@ public final class VinylScreen extends Screen {
 		int rows = Math.max(1, (bottom - top) / rowH);
 		int maxScroll = Math.max(0, mixRows.size() - rows);
 		mixScroll = Math.max(0, Math.min(mixScroll, maxScroll));
-		Ui.rect(g, px + 6, top - 2, pw - 12, bottom - top + 4, 0x40000000);
+		Ui.round(g, px + 6, top - 2, pw - 12, bottom - top + 4, 4, 0x30000000);
 
 		int sliderW = Math.max(70, Math.min(120, pw / 4));
 		int sliderX = px + pw - 16 - 34 - sliderW - 30;
@@ -885,7 +922,7 @@ public final class VinylScreen extends Screen {
 
 	private static final int[] VINYL_COLORS = {0x101014, 0xB02020, 0xD2691E, 0xD4A82A, 0x1E8C4A, 0x1B8C8C, 0x2A56C6, 0x7B3FBF, 0xD9558F, 0xE8E8EE};
 	private static final int[] LABEL_COLORS = {-1, 0xE9A23B, 0xE05252, 0x1DB954, 0x3FA2F6, 0xA96BFF, 0xFF5C9E, 0xF2F2F2, 0x202020};
-	private static final int[] ACCENT_COLORS = {0xE9A23B, 0x1DB954, 0x3FA2F6, 0xFF5C9E, 0xE05252, 0xA96BFF, 0xFFFFFF};
+	private static final int[] ACCENT_COLORS = {0xA78BFA, 0xE9A23B, 0x1DB954, 0x3FA2F6, 0xFF5C9E, 0xE05252, 0xFFFFFF};
 
 	private static final int K_HEADER = 0, K_TOGGLE = 1, K_CYCLE = 2, K_SLIDER = 3, K_TEXT = 4, K_BUTTON = 5, K_SWATCH = 6;
 
@@ -1058,6 +1095,7 @@ public final class VinylScreen extends Screen {
 		rows.add(info(() -> Ui.tr("diag.hooks", yn(Diagnostics.screenHookRegistered), yn(Diagnostics.hudRegistered), yn(Diagnostics.soundMixinHit))));
 		rows.add(info(() -> Ui.tr("diag.drawn", yn(Diagnostics.overlayDrawn), yn(Diagnostics.hudDrawn), yn(Diagnostics.modMenuPresent))));
 		rows.add(info(() -> Ui.tr("diag.input", yn(InputHooks.pressHooked), yn(InputHooks.releaseHooked), String.valueOf(InputHooks.eventPresses), String.valueOf(InputHooks.pollPresses))));
+		rows.add(info(() -> Ui.tr("diag.renderer", DiscTexture.status)));
 		rows.add(info(() -> Ui.tr("diag.disc", String.valueOf(Overlay.pressesHandled), Overlay.lastResult)));
 		rows.add(info(() -> Ui.tr("diag.last_press", InputHooks.lastPress)));
 		rows.add(info(() -> Diagnostics.lastError.isEmpty() ? Ui.tr("diag.no_errors") : Diagnostics.lastError));
@@ -1070,8 +1108,11 @@ public final class VinylScreen extends Screen {
 		return Ui.tr(b ? "yes_short" : "no_short");
 	}
 
+	private List<SRow> settingsCache;
+
 	private void drawSettings(GuiGraphicsExtractor g) {
-		List<SRow> rows = settingsRows();
+		if (settingsCache == null) settingsCache = settingsRows();
+		List<SRow> rows = settingsCache;
 		int top = py + 46;
 		int bottom = py + ph - 40;
 		int rowH = 22;
@@ -1081,7 +1122,7 @@ public final class VinylScreen extends Screen {
 		int x = px + 12;
 		int ctlW = 110;
 		int ctlX = px + pw - 22 - ctlW;
-		Ui.rect(g, px + 6, top - 2, pw - 12, bottom - top + 4, 0x40000000);
+		Ui.round(g, px + 6, top - 2, pw - 12, bottom - top + 4, 4, 0x30000000);
 
 		for (int i = 0; i < visible; i++) {
 			int idx = setScroll + i;
@@ -1096,7 +1137,7 @@ public final class VinylScreen extends Screen {
 				case K_TOGGLE -> {
 					boolean v = r.flag.get();
 					Ui.text(g, this.font, Ui.fit(this.font, r.label, ctlX - x - 8), x, y + 5, Ui.TEXT);
-					Ui.button(g, this.font, ctlX, y + 1, ctlW, 16, Ui.tr(v ? "on" : "off"), hover(ctlX, y + 1, ctlW, 16), false, v);
+					Ui.toggle(g, ctlX + ctlW - 28, y + 2, v, hover(ctlX, y + 1, ctlW, 16));
 					hot(ctlX, y + 1, ctlW, 16, r.action);
 				}
 				case K_CYCLE -> {

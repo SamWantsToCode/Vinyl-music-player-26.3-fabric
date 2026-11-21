@@ -2,15 +2,21 @@
   "schemaVersion": 1,
   "id": "vinylmusicplayer",
   "version": "${version}",
-  "name": "Vinyl Music Player",
-  "description": "A music player with a spinning vinyl disc, local MP3/OGG/WAV playlists, YouTube Music and Spotify sync through the OS media session, and a per-sound volume mixer.",
-  "authors": ["Vinyl Music Player"],
+  "name": "Needledrop",
+  "description": "A spinning vinyl disc with a full music player, your own songs plus Minecraft's, YouTube Music and Spotify sync, and a volume mixer for every sound in the game.",
+  "authors": [
+    "Vinyl Music Player"
+  ],
   "license": "MIT",
-  "icon": "assets/vinylmusicplayer/icon.png",
+  "icon": "icon.png",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.vinylmusic.client.VinylClient"],
-    "modmenu": ["com.vinylmusic.compat.ModMenuCompat"]
+    "client": [
+      "com.vinylmusic.client.VinylClient"
+    ],
+    "modmenu": [
+      "com.vinylmusic.compat.ModMenuCompat"
+    ]
   },
   "mixins": [
     {

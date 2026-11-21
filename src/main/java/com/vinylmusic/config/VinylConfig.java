@@ -64,7 +64,7 @@ public final class VinylConfig {
 	/** RGB of the center label when a song has no cover, or -1 for automatic. */
 	public int labelColor = -1;
 	/** RGB used for progress, volume and highlights. */
-	public int accentColor = 0xE9A23B;
+	public int accentColor = 0xA78BFA;
 	/** 0 vinyl, 1 CD. */
 	public int discStyle = 0;
 	public float spinSpeed = 1.0f;
@@ -85,6 +85,10 @@ public final class VinylConfig {
 	public boolean showMinecraftMusic = true;
 	/** Scan the default music_player folder. */
 	public boolean scanMusicFolder = true;
+	/** Songs you removed from the list. Files stay on disk and are not added back by rescans. */
+	public List<String> hiddenSongs = new ArrayList<>();
+	/** Length of Minecraft's songs by asset hash, so they are measured only once. */
+	public Map<String, Long> durationCache = new LinkedHashMap<>();
 	public List<String> playlist = new ArrayList<>();
 	/** Folders that are scanned for songs, next to the default music_player folder. */
 	public List<String> libraryFolders = new ArrayList<>();
@@ -125,6 +129,8 @@ public final class VinylConfig {
 	private void sanitize() {
 		if (playlist == null) playlist = new ArrayList<>();
 		if (libraryFolders == null) libraryFolders = new ArrayList<>();
+		if (hiddenSongs == null) hiddenSongs = new ArrayList<>();
+		if (durationCache == null) durationCache = new LinkedHashMap<>();
 		cardScale = Math.max(0.5f, Math.min(2.0f, cardScale));
 		if (overrides == null) overrides = new LinkedHashMap<>();
 		if (categoryVolume == null) categoryVolume = new LinkedHashMap<>();
@@ -160,7 +166,7 @@ public final class VinylConfig {
 		opacity = 1.0f;
 		vinylColor = 0x101014;
 		labelColor = -1;
-		accentColor = 0xE9A23B;
+		accentColor = 0xA78BFA;
 		discStyle = 0;
 		spinSpeed = 1.0f;
 		shine = true;
@@ -198,7 +204,13 @@ public final class VinylConfig {
 
 	// ---- Mixer helpers ----
 
+	private static final java.util.concurrent.ConcurrentHashMap<String, String> GROUPS = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static String groupOf(String soundId) {
+		return GROUPS.computeIfAbsent(soundId, VinylConfig::computeGroup);
+	}
+
+	private static String computeGroup(String soundId) {
 		String path = soundId;
 		int colon = path.indexOf(':');
 		if (colon >= 0) path = path.substring(colon + 1);
@@ -251,6 +263,11 @@ public final class VinylConfig {
 		if (!groupVolume.isEmpty()) f *= getGroup(groupOf(soundId));
 		if (!soundVolume.isEmpty()) f *= getSound(soundId);
 		return f;
+	}
+
+	/** True when any slider moved away from 100%. Lets the sound hook return quickly when nothing is adjusted. */
+	public boolean hasMixerChanges() {
+		return !categoryVolume.isEmpty() || !groupVolume.isEmpty() || !soundVolume.isEmpty();
 	}
 
 	public void resetMixer() {

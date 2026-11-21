@@ -2,10 +2,12 @@ package com.vinylmusic.audio;
 
 /** One song in the playlist. */
 public final class Track {
-	public static final int COVER_SIZE = 20;
+	public static final int COVER_SIZE = 64;
 	public static final int THUMB_SIZE = 8;
 
 	public final String path;
+	/** Stable id used to remember removed songs. Same as path except for Minecraft songs. */
+	public volatile String key;
 	public volatile String title;
 	public volatile String artist = "";
 	public volatile String album = "";
@@ -23,6 +25,7 @@ public final class Track {
 
 	public Track(String path) {
 		this.path = path;
+		this.key = path;
 		this.title = "";
 	}
 

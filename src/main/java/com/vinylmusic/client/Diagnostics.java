@@ -11,7 +11,7 @@ public final class Diagnostics {
 	public static final Logger LOG = LoggerFactory.getLogger("VinylMusicPlayer");
 
 	/** Shown in Settings, Status so you can tell which build is running. */
-	public static final String BUILD = "1.0.21-r4 (26.3 mouse buttons fixed, removable defaults)";
+	public static final String BUILD = "1.1.0 (smooth disc, clean UI, removable songs)";
 
 	public static volatile boolean initDone;
 	public static volatile boolean screenHookRegistered;

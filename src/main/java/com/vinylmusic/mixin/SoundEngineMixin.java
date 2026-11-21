@@ -29,9 +29,12 @@ public abstract class SoundEngineMixin {
 			Diagnostics.LOG.info("[VinylMusicPlayer] Sound mixer hook is active.");
 		}
 		VinylConfig cfg = VinylConfig.get();
+		boolean mute = cfg.muteVanillaMusic;
+		// Nothing adjusted and no music to mute: leave the value alone without any work.
+		if (!cfg.hasMixerChanges() && !mute) return;
 		String category = sound.getSource().name();
-		float factor = cfg.soundFactor(category, String.valueOf(sound.getIdentifier()));
-		if (cfg.muteVanillaMusic && "MUSIC".equals(category) && MusicManager.get().isAudible()) {
+		float factor = cfg.hasMixerChanges() ? cfg.soundFactor(category, String.valueOf(sound.getIdentifier())) : 1f;
+		if (mute && "MUSIC".equals(category) && MusicManager.get().isAudible()) {
 			factor = 0f;
 		}
 		if (factor != 1f) {

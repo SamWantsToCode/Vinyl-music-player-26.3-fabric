@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.vinylmusic.client.Diagnostics;
+import com.vinylmusic.config.VinylConfig;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.Reader;
@@ -25,7 +26,7 @@ public final class VanillaMusic {
 	private VanillaMusic() {
 	}
 
-	public static List<Track> load() {
+	public static List<Track> load(java.util.Set<String> hidden) {
 		List<Track> out = new ArrayList<>();
 		try {
 			Path assets = assetsDir();
@@ -49,7 +50,8 @@ public final class VanillaMusic {
 				String hash = e.getValue();
 				Path file = assets.resolve("objects").resolve(hash.substring(0, 2)).resolve(hash);
 				if (!Files.isRegularFile(file)) continue;
-				out.add(makeTrack(e.getKey(), file));
+				if (hidden.contains(e.getKey())) continue;
+				out.add(makeTrack(e.getKey(), file, hash));
 			}
 			Diagnostics.LOG.info("[VinylMusicPlayer] Found {} Minecraft songs.", out.size());
 		} catch (Throwable t) {
@@ -58,16 +60,16 @@ public final class VanillaMusic {
 		return out;
 	}
 
-	private static Track makeTrack(String key, Path file) {
+	private static Track makeTrack(String key, Path file, String hash) {
 		String rest = key.substring("minecraft/sounds/".length(), key.length() - 4); // music/game/calm1 or records/cat
 		String[] seg = rest.split("/");
 		String name = seg[seg.length - 1];
 		String album;
 		if (seg[0].equals("records")) {
-			album = "Minecraft - Music Discs";
+			album = "Music Discs";
 		} else {
 			String folder = seg.length >= 3 ? seg[seg.length - 2] : "menu";
-			album = "Minecraft - " + pretty(folder);
+			album = pretty(folder);
 		}
 		Track t = new Track(file.toAbsolutePath().toString());
 		t.format = "ogg";
@@ -75,7 +77,18 @@ public final class VanillaMusic {
 		t.title = pretty(name);
 		t.artist = "Minecraft";
 		t.album = album;
-		t.durationMs = OggSource.probeDurationMs(file);
+		t.key = key;
+		java.util.Map<String, Long> cache = VinylConfig.get().durationCache;
+		Long known = cache.get(hash);
+		if (known != null && known > 0) {
+			t.durationMs = known;
+		} else {
+			t.durationMs = OggSource.probeDurationMs(file);
+			if (t.durationMs > 0) {
+				cache.put(hash, t.durationMs);
+				VinylConfig.markDirty();
+			}
+		}
 		return t;
 	}
 
