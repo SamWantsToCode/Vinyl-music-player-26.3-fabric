@@ -1,6 +1,8 @@
-name: build
+name: Build
+
 on:
   push:
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -20,21 +22,15 @@ jobs:
           gradle-version: 9.6.0
       - name: Build
         run: gradle build --no-daemon --stacktrace
-      - name: Check the jar has classes and a mod manifest
+      - name: Check the jar
         run: |
           ls -l build/libs
-          unzip -l build/libs/vinyl-music-player-1.0.21+26.3.jar | grep -E "fabric.mod.json|VinylClient.class|SoundEngineMixin.class|META-INF/jars"
-      # A GitHub Release gives a direct .jar download (artifacts are always wrapped in a .zip).
+          jar=$(ls build/libs/needledrop-*.jar | head -n 1)
+          unzip -l "$jar" | grep -E "fabric.mod.json|icon.png|VinylClient.class|SoundEngineMixin.class|META-INF/jars"
       - name: Publish the jar as a Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Vinyl Music Player 1.0.21 for 26.3 (build ${{ github.run_number }})
-          files: build/libs/vinyl-music-player-1.0.21+26.3.jar
+          name: Needledrop build ${{ github.run_number }}
+          files: build/libs/needledrop-*.jar
           make_latest: true
-      - name: Also keep a zipped artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vinyl-music-player-1.0.21+26.3
-          path: build/libs/vinyl-music-player-1.0.21+26.3.jar
-          if-no-files-found: error
